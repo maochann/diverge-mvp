@@ -80,9 +80,12 @@ export async function setLiked(
   if (liked) {
     const { error } = await supabase
       .from('likes')
-      // Upsert so a double-tap racing the server never errors on the
-      // (post_id, user_id) primary key.
-      .upsert({ post_id: postId, user_id: userId });
+      // ignoreDuplicates makes a double-tap racing the server a no-op
+      // (ON CONFLICT DO NOTHING) instead of an UPDATE that RLS blocks.
+      .upsert(
+        { post_id: postId, user_id: userId },
+        { ignoreDuplicates: true },
+      );
     if (error) throw new Error(error.message);
   } else {
     const { error } = await supabase

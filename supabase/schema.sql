@@ -141,10 +141,11 @@ create policy "Users can delete their own comments" on public.comments
 -- (the app does this), which is what the policies below enforce.
 -- ---------------------------------------------------------------------------
 
-insert into storage.buckets (id, name, public)
+-- 5 MB max per file; images only.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
-  ('avatars', 'avatars', true),
-  ('post-images', 'post-images', true)
+  ('avatars', 'avatars', true, 5242880, array['image/jpeg', 'image/png', 'image/webp']),
+  ('post-images', 'post-images', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
 on conflict (id) do nothing;
 
 create policy "Users upload images to their own folder" on storage.objects
