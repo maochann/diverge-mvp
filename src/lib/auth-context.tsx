@@ -93,10 +93,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ) => {
       const cleanUsername = username.trim().toLowerCase();
       // Friendly pre-check; the unique index in the database is the real guard.
+      // Usernames are stored lowercase, so exact equality is the right match
+      // (ilike would treat underscores in usernames as wildcards).
       const { data: taken } = await supabase
         .from('profiles')
         .select('id')
-        .ilike('username', cleanUsername)
+        .eq('username', cleanUsername)
         .maybeSingle();
       if (taken) throw new Error('That username is already taken.');
 
