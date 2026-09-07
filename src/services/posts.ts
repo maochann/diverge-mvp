@@ -43,6 +43,20 @@ export async function fetchFeed(viewerId: string): Promise<FeedPost[]> {
   return (data as unknown as PostRow[]).map((row) => toFeedPost(row, viewerId));
 }
 
+/** One user's posts, newest first. Used for the "my posts" list on the profile. */
+export async function fetchUserPosts(
+  authorId: string,
+  viewerId: string,
+): Promise<FeedPost[]> {
+  const { data, error } = await supabase
+    .from('posts')
+    .select(POST_FIELDS)
+    .eq('user_id', authorId)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data as unknown as PostRow[]).map((row) => toFeedPost(row, viewerId));
+}
+
 export async function fetchPost(
   postId: string,
   viewerId: string,
