@@ -13,16 +13,19 @@ import {
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
-import { Colors, FontSize, Spacing } from '@/constants/theme';
+import { Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
+import { useTheme } from '@/lib/theme';
 import { updateProfile } from '@/services/profiles';
 import { pickImage, uploadImage, type PickedImage } from '@/services/storage';
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
+const BIO_MAX = 160;
 
 export default function EditProfileScreen() {
   const { session, profile, refreshProfile } = useAuth();
+  const { colors } = useTheme();
   const [username, setUsername] = useState(profile?.username ?? '');
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
@@ -40,7 +43,7 @@ export default function EditProfileScreen() {
 
   const handlePickAvatar = async () => {
     try {
-      const picked = await pickImage();
+      const picked = await pickImage({ square: true });
       if (picked) setNewAvatar(picked);
     } catch (e) {
       Alert.alert('Could not open photos', errorMessage(e));
@@ -72,7 +75,7 @@ export default function EditProfileScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.flex}
+      style={[styles.flex, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -84,14 +87,14 @@ export default function EditProfileScreen() {
           accessibilityRole="button"
           accessibilityLabel="Change profile image"
           onPress={handlePickAvatar}
-          style={styles.avatarButton}
+          style={({ pressed }) => [styles.avatarButton, pressed && styles.pressed]}
         >
           <Avatar
             url={newAvatar?.uri ?? profile?.avatar_url ?? null}
             name={displayName || 'You'}
-            size={88}
+            size={96}
           />
-          <Text style={styles.avatarHint}>Change photo</Text>
+          <Text style={[styles.avatarHint, { color: colors.tint }]}>Change photo</Text>
         </Pressable>
 
         <TextField
@@ -108,9 +111,9 @@ export default function EditProfileScreen() {
           onChangeText={setDisplayName}
         />
         <TextField
-          label="Bio (optional)"
+          label={`Bio (optional) · ${bio.length}/${BIO_MAX}`}
           value={bio}
-          onChangeText={(t) => setBio(t.slice(0, 160))}
+          onChangeText={(t) => setBio(t.slice(0, BIO_MAX))}
           multiline
           style={styles.bioInput}
           placeholder="A short line about you"
@@ -121,6 +124,7 @@ export default function EditProfileScreen() {
           onPress={handleSave}
           disabled={!canSave}
           loading={saving}
+          style={styles.save}
         />
         <Button title="Cancel" variant="secondary" onPress={() => router.back()} />
       </ScrollView>
@@ -131,24 +135,25 @@ export default function EditProfileScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   container: {
     padding: Spacing.lg,
-    gap: Spacing.md,
+    gap: Spacing.lg,
   },
   avatarButton: {
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
-  avatarHint: {
-    color: Colors.tint,
-    fontSize: FontSize.sm,
-    fontWeight: '600',
-  },
+  avatarHint: Type.captionStrong,
   bioInput: {
-    minHeight: 80,
+    minHeight: 88,
     textAlignVertical: 'top',
+  },
+  save: {
+    marginTop: Spacing.sm,
+  },
+  pressed: {
+    opacity: 0.7,
   },
 });
