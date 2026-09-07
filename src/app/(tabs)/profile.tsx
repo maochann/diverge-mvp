@@ -6,20 +6,22 @@ import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
-import { Colors, FontSize, Spacing } from '@/constants/theme';
+import { PostSkeletonList } from '@/components/post-skeleton';
+import { Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
+import { useTheme } from '@/lib/theme';
 import { deletePost, fetchUserPosts, setLiked } from '@/services/posts';
 import type { FeedPost } from '@/types';
 
 export default function ProfileScreen() {
-  const { session, profile, signOut, refreshProfile } = useAuth();
+  const { session, profile, refreshProfile } = useAuth();
+  const { colors } = useTheme();
   const userId = session?.user.id ?? '';
 
   const [posts, setPosts] = useState<FeedPost[] | null>(null);
   const [postsError, setPostsError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
 
   const loadPosts = useCallback(async () => {
     try {
@@ -78,29 +80,10 @@ export default function ProfileScreen() {
     }
   };
 
-  const confirmSignOut = () => {
-    Alert.alert('Log out?', 'You can log back in any time.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Log out',
-        style: 'destructive',
-        onPress: async () => {
-          setSigningOut(true);
-          try {
-            await signOut();
-          } catch (e) {
-            Alert.alert('Could not log out', errorMessage(e));
-          } finally {
-            setSigningOut(false);
-          }
-        },
-      },
-    ]);
-  };
-
   if (!profile) {
     return (
       <MessageState
+        icon="person-circle-outline"
         title="Couldn't load your profile"
         detail="Check your connection and try again."
         actionTitle="Retry"
@@ -110,40 +93,43 @@ export default function ProfileScreen() {
   }
 
   const postCount = posts?.length ?? 0;
+  const countLabel =
+    posts === null ? '' : `${postCount} ${postCount === 1 ? 'post' : 'posts'}`;
 
   return (
     <FlatList
-      style={styles.screen}
+      style={[styles.screen, { backgroundColor: colors.background }]}
       data={posts ?? []}
       keyExtractor={(item) => item.id}
       refreshing={refreshing}
       onRefresh={handleRefresh}
       ListHeaderComponent={
-        <View style={styles.headerBlock}>
-          <View style={styles.header}>
-            <Avatar url={profile.avatar_url} name={profile.display_name} size={88} />
-            <Text style={styles.displayName}>{profile.display_name}</Text>
-            <Text style={styles.username}>@{profile.username}</Text>
-            {profile.bio ? <Text style={styles.bio}>{profile.bio}</Text> : null}
+        <View style={[styles.headerBlock, { borderBottomColor: colors.border }]}>
+          <View style={styles.identity}>
+            <Avatar url={profile.avatar_url} name={profile.display_name} size={72} />
+            <View style={styles.names}>
+              <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={2}>
+                {profile.display_name}
+              </Text>
+              <Text style={[styles.username, { color: colors.textSecondary }]}>
+                @{profile.username}
+              </Text>
+            </View>
           </View>
 
-          <Button
-            title="Edit profile"
-            variant="secondary"
-            onPress={() => router.push('/edit-profile')}
-          />
-          <Button
-            title="Log out"
-            variant="destructive"
-            onPress={confirmSignOut}
-            loading={signingOut}
-          />
+          {profile.bio ? (
+            <Text style={[styles.bio, { color: colors.text }]}>{profile.bio}</Text>
+          ) : null}
 
-          <Text style={styles.sectionTitle}>
-            {posts === null
-              ? 'Posts'
-              : `${postCount} ${postCount === 1 ? 'post' : 'posts'}`}
-          </Text>
+          <View style={styles.metaRow}>
+            <Text style={[styles.count, { color: colors.textSecondary }]}>{countLabel}</Text>
+            <Button
+              title="Edit profile"
+              variant="outline"
+              compact
+              onPress={() => router.push('/edit-profile')}
+            />
+          </View>
         </View>
       }
       renderItem={({ item }) => (
@@ -158,15 +144,23 @@ export default function ProfileScreen() {
       ListEmptyComponent={
         postsError !== null ? (
           <MessageState
+            compact
+            icon="cloud-offline-outline"
             title="Couldn't load your posts"
             detail={postsError}
             actionTitle="Retry"
             onAction={() => void loadPosts()}
           />
-        ) : posts === null ? null : (
+        ) : posts === null ? (
+          <PostSkeletonList count={2} />
+        ) : (
           <MessageState
+            compact
+            icon="create-outline"
             title="You haven't posted yet"
             detail="Your posts will show up here."
+            actionTitle="Create a post"
+            onAction={() => router.navigate('/create')}
           />
         )
       }
@@ -177,36 +171,29 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   headerBlock: {
     padding: Spacing.lg,
     gap: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  header: {
+  identity: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
+    gap: Spacing.lg,
   },
-  displayName: {
-    fontSize: FontSize.xl,
-    fontWeight: '700',
-    color: Colors.text,
+  names: {
+    flex: 1,
+    gap: 2,
   },
-  username: {
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
+  displayName: Type.title,
+  username: Type.body,
+  bio: Type.body,
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.xs,
   },
-  bio: {
-    fontSize: FontSize.md,
-    color: Colors.text,
-    textAlign: 'center',
-    lineHeight: 21,
-  },
-  sectionTitle: {
-    fontSize: FontSize.lg,
-    fontWeight: '600',
-    color: Colors.text,
-    marginTop: Spacing.sm,
-  },
+  count: Type.caption,
 });
