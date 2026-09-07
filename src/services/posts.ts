@@ -33,12 +33,78 @@ function toFeedPost(row: PostRow, viewerId: string): FeedPost {
   };
 }
 
-/** All posts from all users, newest first. No ranking of any kind. */
-export async function fetchFeed(viewerId: string): Promise<FeedPost[]> {
+/** Position in the chronological feed: the last post the reader has seen. */
+export interface FeedCursor {
+  created_at: string;
+  id: string;
+}
+
+export interface FeedChapter {
+  posts: FeedPost[];
+  /** Whether at least one older post exists beyond this chapter. */
+  hasMore: boolean;
+  /** Cursor for the chapter after this one (null when there are no posts). */
+  nextCursor: FeedCursor | null;
+}
+
+interface FetchChapterOptions {
+  /** Only posts strictly older than this cursor. Omit for the newest chapter. */
+  before?: FeedCursor | null;
+  limit: number;
+}
+
+/**
+ * One chapter of the feed: all users' posts, newest first, no ranking.
+ * Keyset pagination on (created_at, id) so new or deleted posts never shift
+ * the pages and a post can't appear in two chapters. Fetches one extra row
+ * to learn whether more exist without a second query.
+ */
+export async function fetchFeedChapter(
+  viewerId: string,
+  { before, limit }: FetchChapterOptions,
+): Promise<FeedChapter> {
+  let query = supabase
+    .from('posts')
+    .select(POST_FIELDS)
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(limit + 1);
+
+  if (before) {
+    // (created_at, id) < (cursor.created_at, cursor.id), spelled out for PostgREST.
+    query = query.or(
+      `created_at.lt."${before.created_at}",` +
+        `and(created_at.eq."${before.created_at}",id.lt."${before.id}")`,
+    );
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+
+  const rows = data as unknown as PostRow[];
+  const page = rows.slice(0, limit);
+  const last = page[page.length - 1];
+  return {
+    posts: page.map((row) => toFeedPost(row, viewerId)),
+    hasMore: rows.length > limit,
+    nextCursor: last ? { created_at: last.created_at, id: last.id } : null,
+  };
+}
+
+/**
+ * Re-read specific posts (e.g. after returning from a post's detail screen)
+ * so like/comment counts stay current without re-fetching the feed.
+ * Posts that no longer exist are simply absent from the result.
+ */
+export async function fetchPostsByIds(
+  ids: string[],
+  viewerId: string,
+): Promise<FeedPost[]> {
+  if (ids.length === 0) return [];
   const { data, error } = await supabase
     .from('posts')
     .select(POST_FIELDS)
-    .order('created_at', { ascending: false });
+    .in('id', ids);
   if (error) throw new Error(error.message);
   return (data as unknown as PostRow[]).map((row) => toFeedPost(row, viewerId));
 }
