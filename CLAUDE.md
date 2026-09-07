@@ -20,6 +20,20 @@ repository.
 - When a product decision is unspecified, choose the simplest neutral option.
 - "Diverge" is only a temporary app name; keep branding neutral and minimal.
 
+## Diverge features explicitly authorized by the user (2026-09-07)
+
+Only these two may exist; everything else in the scope list above still
+requires a new explicit instruction.
+
+- **Finite Feed** — the feed is read in chapters of `CHAPTER_SIZE` posts with
+  an explicit end card; no auto-load, no timers, no badges. Composite
+  (created_at, id) cursor. Chapter numbers stay low-key. "End of chapter"
+  (more exists) and "You're caught up" (nothing older) are distinct states.
+- **Feed Intent** — a quiet picker at the top of the feed (Catch up / Mix it
+  up / Explore). Today every intent returns the same chronological feed; the
+  intent is plumbed through `fetchFeedChapter` so ranking can attach later,
+  once there are enough users. Do not add ranking without a new instruction.
+
 ## Stack
 
 Expo SDK 57 / React Native 0.86 / TypeScript (strict) / Expo Router (routes in
