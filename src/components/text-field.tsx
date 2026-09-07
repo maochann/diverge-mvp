@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 
-import { Colors, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing, Type } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
 
 interface TextFieldProps extends TextInputProps {
   label: string;
@@ -8,44 +9,41 @@ interface TextFieldProps extends TextInputProps {
 }
 
 export function TextField({ label, error, style, ...inputProps }: TextFieldProps) {
+  const { colors, scheme } = useTheme();
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
       <TextInput
         accessibilityLabel={label}
-        placeholderTextColor={Colors.textSecondary}
-        style={[styles.input, error ? styles.inputError : null, style]}
+        placeholderTextColor={colors.textTertiary}
+        keyboardAppearance={scheme}
+        style={[
+          styles.input,
+          {
+            color: colors.text,
+            backgroundColor: colors.surface,
+            borderColor: error ? colors.danger : colors.border,
+          },
+          style,
+        ]}
         {...inputProps}
       />
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    gap: Spacing.xs,
+    gap: Spacing.xs + 2,
   },
-  label: {
-    fontSize: FontSize.sm,
-    fontWeight: '600',
-    color: Colors.text,
-  },
+  label: Type.captionStrong,
   input: {
+    ...Type.body,
     borderWidth: 1,
-    borderColor: Colors.border,
     borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: 12,
-    fontSize: FontSize.md,
-    color: Colors.text,
-    backgroundColor: Colors.background,
   },
-  inputError: {
-    borderColor: Colors.danger,
-  },
-  error: {
-    color: Colors.danger,
-    fontSize: FontSize.sm,
-  },
+  error: Type.caption,
 });

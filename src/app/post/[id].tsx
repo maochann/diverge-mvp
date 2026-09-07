@@ -13,14 +13,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
-import { Colors, FontSize, Radius, Spacing } from '@/constants/theme';
+import { PostSkeleton } from '@/components/post-skeleton';
+import { Radius, Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { timeAgo } from '@/lib/format';
 import { errorMessage } from '@/lib/supabase';
+import { useTheme } from '@/lib/theme';
 import {
   addComment,
   deleteComment,
@@ -31,9 +34,13 @@ import {
 } from '@/services/posts';
 import type { Comment, FeedPost } from '@/types';
 
+const MAX_COMMENT_LENGTH = 300;
+
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
+  const { colors, scheme } = useTheme();
+  const insets = useSafeAreaInsets();
   const userId = session?.user.id ?? '';
 
   const [post, setPost] = useState<FeedPost | null>(null);
@@ -92,6 +99,7 @@ export default function PostDetailScreen() {
       await addComment(id, userId, content);
       setDraft('');
       setComments(await fetchComments(id));
+      setPost((p) => (p ? { ...p, comment_count: p.comment_count + 1 } : p));
     } catch (e) {
       Alert.alert('Could not add comment', errorMessage(e));
     } finally {
@@ -109,6 +117,7 @@ export default function PostDetailScreen() {
           try {
             await deleteComment(comment.id);
             setComments((cur) => (cur ?? []).filter((c) => c.id !== comment.id));
+            setPost((p) => (p ? { ...p, comment_count: Math.max(0, p.comment_count - 1) } : p));
           } catch (e) {
             Alert.alert('Could not delete comment', errorMessage(e));
           }
@@ -120,6 +129,7 @@ export default function PostDetailScreen() {
   if (error !== null && post === null) {
     return (
       <MessageState
+        icon="cloud-offline-outline"
         title="Couldn't load this post"
         detail={error}
         actionTitle="Retry"
@@ -130,83 +140,116 @@ export default function PostDetailScreen() {
 
   if (post === null || comments === null) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.tint} />
+      <View style={[styles.flex, { backgroundColor: colors.background }]}>
+        <PostSkeleton withImage />
+        <ActivityIndicator color={colors.textTertiary} style={styles.spinner} />
       </View>
     );
   }
 
+  const canSend = !sending && draft.trim().length > 0;
+
   return (
     <KeyboardAvoidingView
-      style={styles.flex}
+      style={[styles.flex, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
     >
       <FlatList
         style={styles.flex}
         data={comments}
         keyExtractor={(item) => item.id}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
-          <PostCard
-            post={post}
-            isOwn={post.user_id === userId}
-            onToggleLike={handleToggleLike}
-            onOpenComments={() => undefined}
-            onDelete={handleDeletePost}
-            showCommentButton={false}
-          />
+          <>
+            <PostCard
+              post={post}
+              isOwn={post.user_id === userId}
+              onToggleLike={handleToggleLike}
+              onOpenComments={() => undefined}
+              onDelete={handleDeletePost}
+              showCommentButton={false}
+            />
+            {comments.length > 0 ? (
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
+              </Text>
+            ) : null}
+          </>
         }
         renderItem={({ item }) => (
           <View style={styles.comment}>
             <Avatar url={item.author.avatar_url} name={item.author.display_name} size={32} />
             <View style={styles.commentBody}>
-              <Text style={styles.commentMeta}>
-                <Text style={styles.commentName}>{item.author.display_name}</Text>
+              <Text style={[styles.commentMeta, { color: colors.textSecondary }]} numberOfLines={1}>
+                <Text style={[styles.commentName, { color: colors.text }]}>
+                  {item.author.display_name}
+                </Text>
                 {'  '}@{item.author.username} · {timeAgo(item.created_at)}
               </Text>
-              <Text style={styles.commentText}>{item.content}</Text>
+              <Text style={[styles.commentText, { color: colors.text }]}>{item.content}</Text>
             </View>
             {item.user_id === userId ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Delete comment"
                 onPress={() => confirmDeleteComment(item)}
-                hitSlop={8}
+                hitSlop={12}
+                style={({ pressed }) => [styles.commentDelete, pressed && styles.pressed]}
               >
-                <Ionicons name="trash-outline" size={16} color={Colors.textSecondary} />
+                <Ionicons name="trash-outline" size={16} color={colors.textTertiary} />
               </Pressable>
             ) : null}
           </View>
         )}
         ListEmptyComponent={
-          <Text style={styles.noComments}>No comments yet — say something.</Text>
+          <MessageState
+            compact
+            icon="chatbubble-ellipses-outline"
+            title="No comments yet"
+            detail="Be the first to reply."
+          />
         }
       />
 
-      <View style={styles.composer}>
+      <View
+        style={[
+          styles.composer,
+          {
+            borderTopColor: colors.border,
+            backgroundColor: colors.background,
+            paddingBottom: Math.max(insets.bottom, Spacing.sm),
+          },
+        ]}
+      >
         <TextInput
           accessibilityLabel="Write a comment"
           value={draft}
-          onChangeText={(t) => setDraft(t.slice(0, 300))}
+          onChangeText={(t) => setDraft(t.slice(0, MAX_COMMENT_LENGTH))}
           placeholder="Write a comment…"
-          placeholderTextColor={Colors.textSecondary}
-          style={styles.input}
+          placeholderTextColor={colors.textTertiary}
+          keyboardAppearance={scheme}
+          style={[
+            styles.input,
+            { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
           multiline
         />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Send comment"
           onPress={handleSend}
-          disabled={sending || draft.trim().length === 0}
-          style={styles.send}
+          disabled={!canSend}
+          hitSlop={8}
+          style={({ pressed }) => [styles.send, pressed && canSend && styles.pressed]}
         >
           {sending ? (
-            <ActivityIndicator color={Colors.tint} />
+            <ActivityIndicator color={colors.tint} />
           ) : (
             <Ionicons
-              name="send"
-              size={20}
-              color={draft.trim().length === 0 ? Colors.border : Colors.tint}
+              name="arrow-up-circle"
+              size={32}
+              color={canSend ? colors.tint : colors.border}
             />
           )}
         </Pressable>
@@ -218,64 +261,55 @@ export default function PostDetailScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  spinner: {
+    marginTop: Spacing.xl,
+  },
+  sectionTitle: {
+    ...Type.captionStrong,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xs,
   },
   comment: {
     flexDirection: 'row',
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
     alignItems: 'flex-start',
   },
   commentBody: {
     flex: 1,
     gap: 2,
   },
-  commentMeta: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-  },
-  commentName: {
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  commentText: {
-    fontSize: FontSize.md,
-    color: Colors.text,
-    lineHeight: 20,
-  },
-  noComments: {
-    textAlign: 'center',
-    color: Colors.textSecondary,
-    fontSize: FontSize.md,
-    padding: Spacing.lg,
+  commentMeta: Type.caption,
+  commentName: Type.captionStrong,
+  commentText: Type.body,
+  commentDelete: {
+    padding: Spacing.xs,
   },
   composer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: Spacing.sm,
-    padding: Spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: Colors.background,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   input: {
+    ...Type.body,
     flex: 1,
     borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-    fontSize: FontSize.md,
-    color: Colors.text,
-    maxHeight: 100,
+    borderRadius: Radius.lg + 4,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: 10,
+    paddingBottom: 10,
+    maxHeight: 120,
   },
   send: {
-    padding: Spacing.sm,
+    paddingBottom: 2,
+  },
+  pressed: {
+    opacity: 0.6,
   },
 });

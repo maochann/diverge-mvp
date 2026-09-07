@@ -1,25 +1,34 @@
-import { Stack } from 'expo-router';
-import { ActivityIndicator, View } from 'react-native';
+import { Stack, ThemeProvider } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { navigationTheme, useTheme } from '@/lib/theme';
 
 function RootNavigator() {
   const { session, initializing } = useAuth();
+  const { colors } = useTheme();
 
   if (initializing) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color={Colors.tint} />
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator color={colors.tint} />
       </View>
     );
   }
 
   return (
-    <Stack screenOptions={{ headerTintColor: Colors.tint }}>
+    <Stack
+      screenOptions={{
+        headerTintColor: colors.tint,
+        headerTitleStyle: { color: colors.text },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="post/[id]" options={{ title: 'Post' }} />
+        <Stack.Screen name="post/[id]" options={{ title: 'Post', headerBackTitle: 'Back' }} />
         <Stack.Screen
           name="edit-profile"
           options={{ title: 'Edit profile', presentation: 'modal' }}
@@ -33,9 +42,21 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  const theme = useTheme();
   return (
-    <AuthProvider>
-      <RootNavigator />
-    </AuthProvider>
+    <ThemeProvider value={navigationTheme(theme)}>
+      <StatusBar style="auto" />
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

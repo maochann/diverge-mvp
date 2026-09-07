@@ -1,17 +1,19 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, StyleSheet } from 'react-native';
 
 import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
-import { Colors } from '@/constants/theme';
+import { PostSkeletonList } from '@/components/post-skeleton';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
+import { useTheme } from '@/lib/theme';
 import { deletePost, fetchFeed, setLiked } from '@/services/posts';
 import type { FeedPost } from '@/types';
 
 export default function FeedScreen() {
   const { session } = useAuth();
+  const { colors } = useTheme();
   const userId = session?.user.id ?? '';
   const [posts, setPosts] = useState<FeedPost[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,16 +75,13 @@ export default function FeedScreen() {
   };
 
   if (posts === null && error === null) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.tint} />
-      </View>
-    );
+    return <PostSkeletonList />;
   }
 
   if (error !== null && posts === null) {
     return (
       <MessageState
+        icon="cloud-offline-outline"
         title="Couldn't load the feed"
         detail={error}
         actionTitle="Retry"
@@ -96,7 +95,7 @@ export default function FeedScreen() {
 
   return (
     <FlatList
-      style={styles.list}
+      style={[styles.list, { backgroundColor: colors.background }]}
       data={posts}
       keyExtractor={(item) => item.id}
       renderItem={({ item }) => (
@@ -112,8 +111,11 @@ export default function FeedScreen() {
       onRefresh={handleRefresh}
       ListEmptyComponent={
         <MessageState
+          icon="newspaper-outline"
           title="No posts yet"
-          detail="Be the first — create a post from the New post tab."
+          detail="Be the first to say something."
+          actionTitle="Create a post"
+          onAction={() => router.navigate('/create')}
         />
       }
       contentContainerStyle={posts && posts.length === 0 ? styles.emptyGrow : undefined}
@@ -122,14 +124,8 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   list: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   emptyGrow: {
     flexGrow: 1,
