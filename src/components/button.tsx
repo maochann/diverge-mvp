@@ -6,12 +6,15 @@ import {
   type ViewStyle,
 } from 'react-native';
 
-import { Colors, FontSize, Radius, Spacing } from '@/constants/theme';
+import { Radius, Spacing, Type } from '@/constants/theme';
+import { useTheme } from '@/lib/theme';
 
 interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'destructive';
+  variant?: 'primary' | 'secondary' | 'outline' | 'destructive';
+  /** Smaller, content-sized button for inline placement. */
+  compact?: boolean;
   disabled?: boolean;
   loading?: boolean;
   style?: ViewStyle;
@@ -21,18 +24,24 @@ export function Button({
   title,
   onPress,
   variant = 'primary',
+  compact = false,
   disabled = false,
   loading = false,
   style,
 }: ButtonProps) {
+  const { colors } = useTheme();
   const blocked = disabled || loading;
+
   const background =
     variant === 'primary'
-      ? Colors.tint
+      ? colors.tint
       : variant === 'destructive'
-        ? Colors.danger
-        : Colors.surface;
-  const textColor = variant === 'secondary' ? Colors.text : Colors.onTint;
+        ? colors.danger
+        : variant === 'secondary'
+          ? colors.surface
+          : 'transparent';
+  const textColor =
+    variant === 'primary' || variant === 'destructive' ? colors.onTint : colors.text;
 
   return (
     <Pressable
@@ -42,14 +51,21 @@ export function Button({
       disabled={blocked}
       style={({ pressed }) => [
         styles.base,
-        { backgroundColor: background, opacity: blocked ? 0.5 : pressed ? 0.8 : 1 },
+        compact ? styles.compact : styles.full,
+        {
+          backgroundColor: background,
+          borderColor: variant === 'outline' ? colors.border : 'transparent',
+          opacity: blocked ? 0.5 : pressed ? 0.75 : 1,
+        },
         style,
       ]}
     >
       {loading ? (
         <ActivityIndicator color={textColor} />
       ) : (
-        <Text style={[styles.label, { color: textColor }]}>{title}</Text>
+        <Text style={[compact ? styles.compactLabel : styles.label, { color: textColor }]}>
+          {title}
+        </Text>
       )}
     </Pressable>
   );
@@ -57,14 +73,20 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 48,
     borderRadius: Radius.md,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: Spacing.md,
   },
-  label: {
-    fontSize: FontSize.md,
-    fontWeight: '600',
+  full: {
+    minHeight: 48,
+    paddingHorizontal: Spacing.lg,
   },
+  compact: {
+    minHeight: 36,
+    paddingHorizontal: Spacing.lg,
+    alignSelf: 'flex-start',
+  },
+  label: Type.button,
+  compactLabel: Type.captionStrong,
 });

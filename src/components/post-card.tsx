@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
-import { Colors, FontSize, Radius, Spacing } from '@/constants/theme';
+import { PostImage } from '@/components/post-image';
+import { Spacing, Type } from '@/constants/theme';
 import { timeAgo } from '@/lib/format';
+import { useTheme } from '@/lib/theme';
 import type { FeedPost } from '@/types';
 
 interface PostCardProps {
@@ -25,6 +26,8 @@ export function PostCard({
   onDelete,
   showCommentButton = true,
 }: PostCardProps) {
+  const { colors } = useTheme();
+
   const confirmDelete = () => {
     Alert.alert('Delete post?', 'This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
@@ -33,12 +36,19 @@ export function PostCard({
   };
 
   return (
-    <View style={styles.card}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: colors.background, borderBottomColor: colors.border },
+      ]}
+    >
       <View style={styles.header}>
         <Avatar url={post.author.avatar_url} name={post.author.display_name} />
         <View style={styles.headerText}>
-          <Text style={styles.displayName}>{post.author.display_name}</Text>
-          <Text style={styles.meta}>
+          <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={1}>
+            {post.author.display_name}
+          </Text>
+          <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
             @{post.author.username} · {timeAgo(post.created_at)}
           </Text>
         </View>
@@ -47,49 +57,52 @@ export function PostCard({
             accessibilityRole="button"
             accessibilityLabel="Delete post"
             onPress={confirmDelete}
-            hitSlop={8}
+            hitSlop={12}
+            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
           >
-            <Ionicons name="trash-outline" size={18} color={Colors.textSecondary} />
+            <Ionicons name="trash-outline" size={18} color={colors.textTertiary} />
           </Pressable>
         ) : null}
       </View>
 
-      <Text style={styles.content}>{post.content}</Text>
+      <Text style={[styles.content, { color: colors.text }]}>{post.content}</Text>
 
-      {post.image_url ? (
-        <Image
-          source={{ uri: post.image_url }}
-          style={styles.image}
-          contentFit="cover"
-          accessibilityLabel="Post image"
-        />
-      ) : null}
+      {post.image_url ? <PostImage uri={post.image_url} /> : null}
 
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={post.liked_by_me ? 'Remove like' : 'Like'}
           onPress={() => onToggleLike(post)}
-          style={styles.action}
           hitSlop={8}
+          style={({ pressed }) => [styles.action, pressed && styles.pressed]}
         >
           <Ionicons
             name={post.liked_by_me ? 'heart' : 'heart-outline'}
             size={22}
-            color={post.liked_by_me ? Colors.danger : Colors.textSecondary}
+            color={post.liked_by_me ? colors.like : colors.textSecondary}
           />
-          <Text style={styles.actionCount}>{post.like_count}</Text>
+          <Text
+            style={[
+              styles.actionCount,
+              { color: post.liked_by_me ? colors.like : colors.textSecondary },
+            ]}
+          >
+            {post.like_count}
+          </Text>
         </Pressable>
         {showCommentButton ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="View comments"
             onPress={() => onOpenComments(post)}
-            style={styles.action}
             hitSlop={8}
+            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <Ionicons name="chatbubble-outline" size={20} color={Colors.textSecondary} />
-            <Text style={styles.actionCount}>{post.comment_count}</Text>
+            <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
+            <Text style={[styles.actionCount, { color: colors.textSecondary }]}>
+              {post.comment_count}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -99,52 +112,42 @@ export function PostCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: Colors.background,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
+    gap: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   headerText: {
     flex: 1,
   },
-  displayName: {
-    fontSize: FontSize.md,
-    fontWeight: '600',
-    color: Colors.text,
+  displayName: Type.bodyStrong,
+  meta: Type.caption,
+  iconButton: {
+    padding: Spacing.xs,
   },
-  meta: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
-  },
-  content: {
-    fontSize: FontSize.md,
-    color: Colors.text,
-    lineHeight: 21,
-  },
-  image: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: Radius.lg,
-    backgroundColor: Colors.surface,
-  },
+  content: Type.body,
   actions: {
     flexDirection: 'row',
-    gap: Spacing.lg,
+    gap: Spacing.xl,
+    marginTop: Spacing.xs,
   },
   action: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs,
+    gap: Spacing.xs + 2,
+    minHeight: 32,
   },
   actionCount: {
-    fontSize: FontSize.sm,
-    color: Colors.textSecondary,
+    ...Type.caption,
     fontVariant: ['tabular-nums'],
+  },
+  pressed: {
+    opacity: 0.6,
   },
 });
