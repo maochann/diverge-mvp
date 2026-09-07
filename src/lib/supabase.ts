@@ -13,24 +13,30 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// During web static rendering there is no window/storage; a client that tries
+// to persist sessions there crashes the dev server on any plain browser request.
+const isServerRender = typeof window === 'undefined';
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
+    ...(isServerRender ? {} : { storage: AsyncStorage }),
+    autoRefreshToken: !isServerRender,
+    persistSession: !isServerRender,
     // No browser URL to parse sessions from in a native app.
     detectSessionInUrl: false,
   },
 });
 
 // Supabase only refreshes auth tokens while told the app is in the foreground.
-AppState.addEventListener('change', (state) => {
-  if (state === 'active') {
-    supabase.auth.startAutoRefresh();
-  } else {
-    supabase.auth.stopAutoRefresh();
-  }
-});
+if (!isServerRender) {
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  });
+}
 
 /** Extract a human-readable message from an unknown thrown value. */
 export function errorMessage(error: unknown): string {
