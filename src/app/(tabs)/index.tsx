@@ -4,10 +4,12 @@ import { Alert, FlatList, StyleSheet } from 'react-native';
 
 import { ChapterDivider } from '@/components/chapter-divider';
 import { ChapterEnd } from '@/components/chapter-end';
+import { FeedIntentPicker } from '@/components/feed-intent-picker';
 import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
 import { PostSkeletonList } from '@/components/post-skeleton';
-import { CHAPTER_SIZE } from '@/constants/feed';
+import { CHAPTER_SIZE, type FeedIntent } from '@/constants/feed';
+import { useFeedIntent } from '@/lib/feed-intent';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -60,6 +62,7 @@ export default function FeedScreen() {
   const { session: auth } = useAuth();
   const { colors } = useTheme();
   const userId = auth?.user.id ?? '';
+  const { intent, setIntent, ready: intentReady } = useFeedIntent(userId);
 
   const [session, setSession] = useState<FeedSession | null>(null);
   const [initialError, setInitialError] = useState<string | null>(null);
@@ -74,10 +77,10 @@ export default function FeedScreen() {
   }, [session]);
 
   /** Start (or restart) a session from the newest posts. */
-  const startSession = useCallback(async () => {
+  const startSession = useCallback(async (forIntent: FeedIntent) => {
     try {
       setInitialError(null);
-      const chapter = await fetchFeedChapter(userId, { limit: CHAPTER_SIZE });
+      const chapter = await fetchFeedChapter(userId, { intent: forIntent, limit: CHAPTER_SIZE });
       setSession({
         chapters: [chapter.posts],
         cursor: chapter.nextCursor,
@@ -109,18 +112,30 @@ export default function FeedScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!intentReady) return;
       if (sessionRef.current === null) {
-        void startSession();
+        void startSession(intent);
       } else {
         void refreshCounts();
       }
-    }, [startSession, refreshCounts]),
+      // `intent` is read once here on purpose: changing it goes through
+      // handleIntentChange, which restarts the session itself.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [intentReady, startSession, refreshCounts]),
   );
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await startSession();
+    await startSession(intent);
     setRefreshing(false);
+  };
+
+  /** A new intent is a new reading session: back to the top, chapter one. */
+  const handleIntentChange = async (next: FeedIntent) => {
+    if (next === intent) return;
+    setIntent(next);
+    setSession(null);
+    await startSession(next);
   };
 
   const handleNextChapter = async () => {
@@ -130,6 +145,7 @@ export default function FeedScreen() {
     setNextError(null);
     try {
       const chapter = await fetchFeedChapter(userId, {
+        intent,
         before: current.cursor,
         limit: CHAPTER_SIZE,
       });
@@ -195,7 +211,7 @@ export default function FeedScreen() {
         title="Couldn't load the feed"
         detail={initialError ?? undefined}
         actionTitle="Retry"
-        onAction={() => void startSession()}
+        onAction={() => void startSession(intent)}
       />
     );
   }
@@ -224,6 +240,7 @@ export default function FeedScreen() {
       }
       refreshing={refreshing}
       onRefresh={handleRefresh}
+      ListHeaderComponent={<FeedIntentPicker value={intent} onChange={handleIntentChange} />}
       ListEmptyComponent={
         <MessageState
           icon="newspaper-outline"

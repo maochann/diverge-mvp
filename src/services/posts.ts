@@ -1,3 +1,4 @@
+import type { FeedIntent } from '@/constants/feed';
 import { supabase } from '@/lib/supabase';
 import type { Comment, FeedPost, PostAuthor } from '@/types';
 
@@ -48,6 +49,11 @@ export interface FeedChapter {
 }
 
 interface FetchChapterOptions {
+  /**
+   * What the reader asked for. Accepted now so the call sites are already
+   * wired; every intent currently returns the plain chronological feed.
+   */
+  intent: FeedIntent;
   /** Only posts strictly older than this cursor. Omit for the newest chapter. */
   before?: FeedCursor | null;
   limit: number;
@@ -63,6 +69,7 @@ export async function fetchFeedChapter(
   viewerId: string,
   { before, limit }: FetchChapterOptions,
 ): Promise<FeedChapter> {
+  // `intent` is intentionally unused until ranking exists; see FetchChapterOptions.
   let query = supabase
     .from('posts')
     .select(POST_FIELDS)
