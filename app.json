@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "diverge-mvp",
+    "name": "Diverge",
     "slug": "diverge-mvp",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.maochan.diverge-mvp"
+      "bundleIdentifier": "com.maochan.diverge-mvp",
+      "supportsTablet": false
     },
     "android": {
       "adaptiveIcon": {
