@@ -108,8 +108,10 @@ export const REPORT_REASONS: readonly { key: ReportReason; label: string }[] = [
 ];
 
 interface ReportInput {
+  /** The post being reported, if any. */
   postId?: string;
-  userId?: string;
+  /** The person being reported (the post's author when reporting a post). */
+  userId: string;
   reason: ReportReason;
   details: string | null;
 }
@@ -119,7 +121,7 @@ export async function submitReport(reporterId: string, input: ReportInput): Prom
   const { error } = await supabase.from('reports').insert({
     reporter_id: reporterId,
     post_id: input.postId ?? null,
-    reported_user_id: input.userId ?? null,
+    reported_user_id: input.userId,
     reason: input.reason,
     details: input.details,
   });
