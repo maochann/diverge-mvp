@@ -70,7 +70,10 @@ export function PostCard({
   /** "…" on someone else's post: report it, or block its author. */
   const openMenu = () => {
     const actions: { label: string; destructive?: boolean; run: () => void }[] = [
-      { label: 'Report post', run: () => router.push(`/report?postId=${post.id}`) },
+      {
+        label: 'Report post',
+        run: () => router.push(`/report?postId=${post.id}&userId=${post.user_id}`),
+      },
       { label: `Block ${post.author.display_name}`, destructive: true, run: confirmBlock },
     ];
     if (Platform.OS === 'ios') {
