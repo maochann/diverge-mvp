@@ -106,7 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: email.trim(),
         password,
         options: {
-          data: { username: cleanUsername, display_name: displayName.trim() },
+          data: {
+            username: cleanUsername,
+            display_name: displayName.trim(),
+            // The sign-up form requires agreeing to the Terms and Privacy
+            // Policy; the profile trigger stores when that happened.
+            terms_accepted_at: new Date().toISOString(),
+          },
         },
       });
       if (error) throw new Error(error.message);
