@@ -20,19 +20,46 @@ repository.
 - When a product decision is unspecified, choose the simplest neutral option.
 - "Diverge" is only a temporary app name; keep branding neutral and minimal.
 
-## Diverge features explicitly authorized by the user (2026-09-07)
+## Diverge features explicitly authorized by the user
 
-Only these two may exist; everything else in the scope list above still
+Only these three may exist; everything else in the scope list above still
 requires a new explicit instruction.
 
-- **Finite Feed** — the feed is read in chapters of `CHAPTER_SIZE` posts with
-  an explicit end card; no auto-load, no timers, no badges. Composite
-  (created_at, id) cursor. Chapter numbers stay low-key. "End of chapter"
-  (more exists) and "You're caught up" (nothing older) are distinct states.
-- **Feed Intent** — a quiet picker at the top of the feed (Catch up / Mix it
-  up / Explore). Today every intent returns the same chronological feed; the
-  intent is plumbed through `fetchFeedChapter` so ranking can attach later,
-  once there are enough users. Do not add ranking without a new instruction.
+- **Finite Feed** (2026-09-07) — the feed is read in chapters of
+  `CHAPTER_SIZE` posts with an explicit end card; no auto-load, no timers, no
+  badges. Chapter numbers stay low-key. "End of chapter" (more exists) and
+  "You're caught up" (nothing older) are distinct states. Every session is a
+  snapshot (`cutoff` = when it began): posts created later wait for the next
+  session, and follow changes never rewrite chapters already on screen.
+- **Feed Intent** (2026-09-07, given meaning 2026-09-15) — Catch up / Mix it
+  up / Explore at the top of the feed. The only inputs to what is shown are
+  this choice and who the reader follows.
+  - Catch up = posts by people the reader follows, newest first. **Own posts
+    are excluded** (they live on the Profile tab). Never backfilled with
+    non-followed people: an empty Catch up is a true statement.
+  - Explore = posts by people the reader does not follow (own excluded),
+    people-balanced: one post from every eligible person before anyone's
+    second (`explore_chapter` SQL function, ordered by rank, then recency).
+  - Mix it up = `MIX_FOLLOWED_COUNT` followed + `MIX_OUTSIDE_COUNT` outside per
+    chapter in a fixed F F O pattern; either side fills in for the other. When
+    one side is empty, a one-line `ChapterNote` says so.
+  - Ranking signals that must NOT be used, ever: likes, comment counts,
+    follower counts, viewing time, profile opens, mutual follows, posting
+    frequency.
+- **Follow System** (2026-09-15) — `follows(follower_id, following_id)`.
+  Following is an explicit choice, not a popularity signal:
+  - Follow / Following button only on another person's profile
+    (`user/[id]`), never on a post. Post and comment authors open the profile.
+  - No follower counts or lists anywhere. The reader's own Following list
+    (`following`) exists to review and undo choices; the count on the Profile
+    tab is a caption, not a stat.
+  - No follow notifications, no "follows you" badge, no private accounts or
+    follow requests.
+  - RLS: users can only read their own outgoing follows. Do not widen this
+    without a new instruction.
+  - Follow state lives in `FollowProvider` (server is the source of truth;
+    nothing persisted on device). Never fall back to "everyone" when the set
+    fails to load.
 
 ## Stack
 
@@ -46,8 +73,10 @@ before writing code against unfamiliar Expo modules.
 ## Layout
 
 - `src/app` — screens/layouts only. `(auth)` group when signed out, `(tabs)` +
-  `post/[id]` + `edit-profile` when signed in (guarded in `src/app/_layout.tsx`).
-- `src/lib` — Supabase client (`supabase.ts`), auth context, formatting helpers.
+  `post/[id]` + `user/[id]` + `following` + `edit-profile` when signed in
+  (guarded in `src/app/_layout.tsx`).
+- `src/lib` — Supabase client (`supabase.ts`), auth context, follow context,
+  feed intent storage, Mix composition (`feed-mix.ts`), formatting helpers.
 - `src/services` — all database/storage calls. Screens never call `supabase` directly.
 - `src/components` — small reusable UI (button, text-field, avatar, post-card, message-state).
 - `src/constants/theme.ts` — neutral placeholder tokens; no branding yet.

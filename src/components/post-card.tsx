@@ -16,6 +16,11 @@ interface PostCardProps {
   onDelete: (post: FeedPost) => void;
   /** Hide the comment button on the post-detail screen. */
   showCommentButton?: boolean;
+  /**
+   * Open the author's profile. Omitted (or own post) means the header is not
+   * tappable — your own profile is a tab, not a destination from a post.
+   */
+  onOpenAuthor?: (userId: string) => void;
 }
 
 export function PostCard({
@@ -25,8 +30,10 @@ export function PostCard({
   onOpenComments,
   onDelete,
   showCommentButton = true,
+  onOpenAuthor,
 }: PostCardProps) {
   const { colors } = useTheme();
+  const authorTappable = !isOwn && onOpenAuthor !== undefined;
 
   const confirmDelete = () => {
     Alert.alert('Delete post?', 'This cannot be undone.', [
@@ -43,15 +50,24 @@ export function PostCard({
       ]}
     >
       <View style={styles.header}>
-        <Avatar url={post.author.avatar_url} name={post.author.display_name} />
-        <View style={styles.headerText}>
-          <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={1}>
-            {post.author.display_name}
-          </Text>
-          <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-            @{post.author.username} · {timeAgo(post.created_at)}
-          </Text>
-        </View>
+        <Pressable
+          accessibilityRole={authorTappable ? 'button' : undefined}
+          accessibilityLabel={authorTappable ? `Open ${post.author.display_name}'s profile` : undefined}
+          onPress={authorTappable ? () => onOpenAuthor(post.user_id) : undefined}
+          disabled={!authorTappable}
+          hitSlop={4}
+          style={({ pressed }) => [styles.author, pressed && authorTappable && styles.pressed]}
+        >
+          <Avatar url={post.author.avatar_url} name={post.author.display_name} />
+          <View style={styles.headerText}>
+            <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={1}>
+              {post.author.display_name}
+            </Text>
+            <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
+              @{post.author.username} · {timeAgo(post.created_at)}
+            </Text>
+          </View>
+        </Pressable>
         {isOwn ? (
           <Pressable
             accessibilityRole="button"
@@ -119,6 +135,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  author: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
