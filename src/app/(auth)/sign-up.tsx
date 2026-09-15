@@ -1,9 +1,12 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Linking,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
+import { LEGAL_URLS } from '@/constants/legal';
 import { Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
@@ -27,6 +31,7 @@ export default function SignUpScreen() {
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,6 +46,7 @@ export default function SignUpScreen() {
     password.length >= 8 &&
     displayName.trim().length > 0 &&
     USERNAME_PATTERN.test(username.trim().toLowerCase()) &&
+    agreed &&
     !submitting;
 
   const handleSubmit = async () => {
@@ -117,6 +123,38 @@ export default function SignUpScreen() {
               placeholder="How your name appears"
             />
 
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: agreed }}
+              accessibilityLabel="I agree to the Terms of Use and Privacy Policy"
+              onPress={() => setAgreed((a) => !a)}
+              hitSlop={6}
+              style={styles.agreeRow}
+            >
+              <Ionicons
+                name={agreed ? 'checkbox' : 'square-outline'}
+                size={22}
+                color={agreed ? colors.tint : colors.textTertiary}
+              />
+              <Text style={[styles.agreeText, { color: colors.textSecondary }]}>
+                I agree to the{' '}
+                <Text
+                  style={{ color: colors.tint }}
+                  onPress={() => void Linking.openURL(LEGAL_URLS.terms)}
+                >
+                  Terms of Use
+                </Text>{' '}
+                and{' '}
+                <Text
+                  style={{ color: colors.tint }}
+                  onPress={() => void Linking.openURL(LEGAL_URLS.privacy)}
+                >
+                  Privacy Policy
+                </Text>
+                .
+              </Text>
+            </Pressable>
+
             {error ? (
               <Text style={[styles.error, { color: colors.danger }]}>{error}</Text>
             ) : null}
@@ -160,6 +198,16 @@ const styles = StyleSheet.create({
   subtitle: Type.body,
   form: {
     gap: Spacing.lg,
+  },
+  agreeRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  agreeText: {
+    ...Type.caption,
+    flex: 1,
   },
   error: {
     ...Type.caption,
