@@ -52,7 +52,6 @@ export function FeedIntentPicker({ value, onChange }: FeedIntentPickerProps) {
       </View>
       <Text style={[styles.description, { color: colors.textTertiary }]}>
         {selected.description}
-        {selected.placeholder ? ' Same as Catch up for now.' : ''}
       </Text>
     </View>
   );
