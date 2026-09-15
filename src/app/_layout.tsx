@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { FollowProvider } from '@/lib/follow-context';
 import { navigationTheme, useTheme } from '@/lib/theme';
 
 function RootNavigator() {
@@ -29,6 +30,11 @@ function RootNavigator() {
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="post/[id]" options={{ title: 'Post', headerBackTitle: 'Back' }} />
+        <Stack.Screen name="user/[id]" options={{ title: '', headerBackTitle: 'Back' }} />
+        <Stack.Screen
+          name="following"
+          options={{ title: 'Following', headerBackTitle: 'Back' }}
+        />
         <Stack.Screen
           name="edit-profile"
           options={{ title: 'Edit profile', presentation: 'modal' }}
@@ -47,7 +53,9 @@ export default function RootLayout() {
     <ThemeProvider value={navigationTheme(theme)}>
       <StatusBar style="auto" />
       <AuthProvider>
-        <RootNavigator />
+        <FollowProvider>
+          <RootNavigator />
+        </FollowProvider>
       </AuthProvider>
     </ThemeProvider>
   );
