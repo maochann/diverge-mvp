@@ -57,9 +57,26 @@ requires a new explicit instruction.
     follow requests.
   - RLS: users can only read their own outgoing follows. Do not widen this
     without a new instruction.
-  - Follow state lives in `FollowProvider` (server is the source of truth;
-    nothing persisted on device). Never fall back to "everyone" when the set
-    fails to load.
+  - Relation state (follow / mute / block sets) lives in `RelationsProvider`
+    (server is the source of truth; nothing persisted on device). Never fall
+    back to "everyone" when the sets fail to load.
+- **Safety: Mute / Block / Report** (2026-09-15) — required for App Store
+  review of user-generated content, so these are not optional.
+  - Mute is one-directional and private: the muted person's posts leave the
+    reader's Catch up / Mix / Explore. Nothing else changes; they are not told.
+  - Block is two-directional and enforced in the database: `blocked_either_way()`
+    is consulted by the SELECT policies on profiles, posts, comments and likes,
+    so no screen can leak content across a block. `block_user()` records the
+    block and removes follows and mutes both ways in one transaction. Blocks
+    are not optimistic on the client.
+  - Report (`reports` table) is insert-only for users and reviewed in the
+    Supabase dashboard. Post and profile "…" menus carry Report and Block.
+  - No counts, notifications or badges for any of these. Own lists only
+    (`people/[list]`).
+- **App Store prerequisites** (2026-09-15): terms acceptance at sign-up
+  (`profiles.terms_accepted_at`), in-app account deletion
+  (`delete-account` Edge Function, from Edit profile), public Terms / Privacy pages
+  (`src/constants/legal.ts`).
 
 ## Stack
 
@@ -73,10 +90,11 @@ before writing code against unfamiliar Expo modules.
 ## Layout
 
 - `src/app` — screens/layouts only. `(auth)` group when signed out, `(tabs)` +
-  `post/[id]` + `user/[id]` + `following` + `edit-profile` when signed in
-  (guarded in `src/app/_layout.tsx`).
-- `src/lib` — Supabase client (`supabase.ts`), auth context, follow context,
-  feed intent storage, Mix composition (`feed-mix.ts`), formatting helpers.
+  `post/[id]` + `user/[id]` + `people/[list]` + `report` + `edit-profile` when
+  signed in (guarded in `src/app/_layout.tsx`).
+- `src/lib` — Supabase client (`supabase.ts`), auth context, relations
+  context, feed intent storage, Mix composition (`feed-mix.ts`), formatting
+  helpers.
 - `src/services` — all database/storage calls. Screens never call `supabase` directly.
 - `src/components` — small reusable UI (button, text-field, avatar, post-card, message-state).
 - `src/constants/theme.ts` — neutral placeholder tokens; no branding yet.

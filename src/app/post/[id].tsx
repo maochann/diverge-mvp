@@ -170,6 +170,7 @@ export default function PostDetailScreen() {
               onDelete={handleDeletePost}
               showCommentButton={false}
               onOpenAuthor={(uid) => router.push(`/user/${uid}`)}
+              onAuthorBlocked={() => router.back()}
             />
             {comments.length > 0 ? (
               <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>

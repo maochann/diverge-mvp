@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Stack, router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActionSheetIOS, Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { FollowButton } from '@/components/follow-button';
@@ -9,6 +10,7 @@ import { PostCard } from '@/components/post-card';
 import { PostSkeletonList } from '@/components/post-skeleton';
 import { Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { fetchUserPosts, setLiked } from '@/services/posts';
@@ -24,6 +26,7 @@ export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const { colors } = useTheme();
+  const { isMuted, isBlocked, isPending, toggleMute, block } = useRelations();
   const viewerId = session?.user.id ?? '';
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -80,9 +83,90 @@ export default function UserProfileScreen() {
     }
   };
 
+  const confirmBlock = () => {
+    const name = profile?.display_name ?? 'this person';
+    Alert.alert(
+      `Block ${name}?`,
+      "You won't see each other's posts, comments or profiles, and any follows between you are removed. They won't be told.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await block(id);
+              router.back();
+            } catch (e) {
+              Alert.alert('Could not block', errorMessage(e));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleMute = async () => {
+    try {
+      await toggleMute(id);
+    } catch (e) {
+      Alert.alert('Could not update mute', errorMessage(e));
+    }
+  };
+
+  /** The "…" menu: the only place to mute, block or report a person. */
+  const openMenu = () => {
+    const muted = isMuted(id);
+    const actions: { label: string; destructive?: boolean; run: () => void }[] = [
+      { label: muted ? 'Unmute' : 'Mute', run: () => void handleMute() },
+      { label: 'Report', run: () => router.push(`/report?userId=${id}`) },
+      { label: 'Block', destructive: true, run: confirmBlock },
+    ];
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [...actions.map((a) => a.label), 'Cancel'],
+          destructiveButtonIndex: actions.findIndex((a) => a.destructive),
+          cancelButtonIndex: actions.length,
+          userInterfaceStyle: colors.background === '#ffffff' ? 'light' : 'dark',
+        },
+        (index) => actions[index]?.run(),
+      );
+    } else {
+      Alert.alert(profile?.display_name ?? 'Options', undefined, [
+        ...actions.map((a) => ({
+          text: a.label,
+          style: a.destructive ? ('destructive' as const) : ('default' as const),
+          onPress: a.run,
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
+    }
+  };
+
   // Your own profile lives in the tab bar; there is nothing to follow here.
   if (id === viewerId) {
     return <Redirect href="/(tabs)/profile" />;
+  }
+
+  // Blocked either way: the row is hidden by the database, so nothing loads.
+  if (isBlocked(id) || (profile === null && profileError !== null && posts?.length === 0)) {
+    return (
+      <>
+        <Stack.Screen options={{ title: '' }} />
+        <MessageState
+          icon="eye-off-outline"
+          title="This profile isn't available"
+          detail={
+            isBlocked(id)
+              ? 'You blocked this account. You can unblock it from your Blocked list.'
+              : undefined
+          }
+          actionTitle={isBlocked(id) ? 'Go to Blocked list' : undefined}
+          onAction={isBlocked(id) ? () => router.replace('/people/blocked') : undefined}
+        />
+      </>
+    );
   }
 
   if (profile === null && profileError !== null) {
@@ -107,7 +191,23 @@ export default function UserProfileScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: profile.display_name }} />
+      <Stack.Screen
+        options={{
+          title: profile.display_name,
+          headerRight: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="More options"
+              onPress={openMenu}
+              disabled={isPending(id)}
+              hitSlop={10}
+              style={({ pressed }) => [styles.menuButton, pressed && styles.pressed]}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color={colors.text} />
+            </Pressable>
+          ),
+        }}
+      />
       <FlatList
         style={[styles.screen, { backgroundColor: colors.background }]}
         data={posts ?? []}
@@ -133,7 +233,10 @@ export default function UserProfileScreen() {
             ) : null}
 
             <View style={styles.metaRow}>
-              <Text style={[styles.count, { color: colors.textSecondary }]}>{countLabel}</Text>
+              <Text style={[styles.count, { color: colors.textSecondary }]}>
+                {countLabel}
+                {isMuted(profile.id) ? '  ·  Muted' : ''}
+              </Text>
               <FollowButton userId={profile.id} />
             </View>
           </View>
@@ -145,6 +248,7 @@ export default function UserProfileScreen() {
             onToggleLike={handleToggleLike}
             onOpenComments={(p) => router.push(`/post/${p.id}`)}
             onDelete={() => undefined}
+            onAuthorBlocked={() => router.back()}
           />
         )}
         ListEmptyComponent={
@@ -201,4 +305,10 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   count: Type.caption,
+  menuButton: {
+    padding: Spacing.xs,
+  },
+  pressed: {
+    opacity: 0.6,
+  },
 });
