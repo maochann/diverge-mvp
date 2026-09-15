@@ -298,15 +298,17 @@ create table public.blocks (
 create index blocks_blocked_id_idx on public.blocks (blocked_id);
 
 -- Reports are write-only for users; they are reviewed in the dashboard.
+-- A report always names the reported person; post_id is extra context that
+-- may be nulled if the post is deleted (so account deletion never fails on
+-- a dangling report).
 create table public.reports (
   id uuid primary key default gen_random_uuid (),
   reporter_id uuid not null references public.profiles (id) on delete cascade,
   post_id uuid references public.posts (id) on delete set null,
-  reported_user_id uuid references public.profiles (id) on delete cascade,
+  reported_user_id uuid not null references public.profiles (id) on delete cascade,
   reason text not null,
   details text,
   created_at timestamptz not null default now(),
-  constraint reports_target check (post_id is not null or reported_user_id is not null),
   constraint reports_reason check (reason in ('spam', 'harassment', 'inappropriate', 'other')),
   constraint reports_details_length check (details is null or char_length(details) <= 500)
 );
