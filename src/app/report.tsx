@@ -29,7 +29,7 @@ const MAX_DETAILS = 500;
 export default function ReportScreen() {
   const { postId, userId: reportedUserId } = useLocalSearchParams<{
     postId?: string;
-    userId?: string;
+    userId: string;
   }>();
   const { session } = useAuth();
   const { colors, scheme } = useTheme();
@@ -41,7 +41,7 @@ export default function ReportScreen() {
   const canSubmit = reason !== null && !submitting;
 
   const handleSubmit = async () => {
-    if (!session || reason === null) return;
+    if (!session || reason === null || !reportedUserId) return;
     setSubmitting(true);
     try {
       await submitReport(session.user.id, {
