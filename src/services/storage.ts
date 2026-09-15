@@ -1,4 +1,5 @@
 import { decode } from 'base64-arraybuffer';
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 
 import { supabase } from '@/lib/supabase';
@@ -26,17 +27,44 @@ export async function pickImage({
     mediaTypes: ['images'],
     allowsEditing: square,
     aspect: square ? [1, 1] : undefined,
-    quality: 0.7,
-    base64: true,
+    quality: 1,
   });
   if (result.canceled) return null;
-  const asset = result.assets[0];
-  if (!asset.base64) throw new Error('Could not read the selected image.');
-  return {
-    uri: asset.uri,
-    base64: asset.base64,
-    mimeType: asset.mimeType ?? 'image/jpeg',
-  };
+  return prepareForUpload(result.assets[0]);
+}
+
+/** Longest side of an uploaded image, in pixels. Larger photos are scaled down. */
+const MAX_DIMENSION = 1600;
+const JPEG_QUALITY = 0.8;
+
+/**
+ * Re-encode the picked photo as a JPEG no larger than MAX_DIMENSION on its
+ * longest side. iPhones store photos as HEIC, which the storage buckets
+ * reject, and camera originals are several MB — this makes every upload a
+ * small JPEG regardless of the source.
+ */
+async function prepareForUpload(
+  asset: ImagePicker.ImagePickerAsset,
+): Promise<PickedImage> {
+  const context = ImageManipulator.manipulate(asset.uri);
+  const longest = Math.max(asset.width, asset.height);
+  if (longest > MAX_DIMENSION) {
+    if (asset.width >= asset.height) {
+      context.resize({ width: MAX_DIMENSION });
+    } else {
+      context.resize({ height: MAX_DIMENSION });
+    }
+  }
+  const rendered = await context.renderAsync();
+  const saved = await rendered.saveAsync({
+    format: SaveFormat.JPEG,
+    compress: JPEG_QUALITY,
+    base64: true,
+  });
+  rendered.release();
+  context.release();
+  if (!saved.base64) throw new Error('Could not read the selected image.');
+  return { uri: saved.uri, base64: saved.base64, mimeType: 'image/jpeg' };
 }
 
 /**
