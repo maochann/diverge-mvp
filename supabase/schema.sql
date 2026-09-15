@@ -250,3 +250,208 @@ as $$
 $$;
 
 grant execute on function public.explore_chapter (timestamptz, int, int, timestamptz, uuid) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Safety: mutes, blocks, reports, terms acceptance, account deletion
+-- (added 2026-09-15). Applied on an existing database by running just this
+-- section in the SQL editor.
+-- ---------------------------------------------------------------------------
+
+-- When the user accepted the Terms of Use / Privacy Policy (set at sign-up).
+alter table public.profiles add column if not exists terms_accepted_at timestamptz;
+
+create or replace function public.handle_new_user () returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, username, display_name, terms_accepted_at)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'username', 'user_' || left(new.id::text, 8)),
+    coalesce(nullif(new.raw_user_meta_data ->> 'display_name', ''), 'New user'),
+    nullif(new.raw_user_meta_data ->> 'terms_accepted_at', '')::timestamptz
+  );
+  return new;
+end;
+$$;
+
+-- Mute: one-directional, private. "Don't show me this person's posts."
+create table public.mutes (
+  muter_id uuid not null references public.profiles (id) on delete cascade,
+  muted_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (muter_id, muted_id),
+  constraint mutes_not_self check (muter_id <> muted_id)
+);
+
+-- Block: two-directional invisibility, enforced by RLS below.
+create table public.blocks (
+  blocker_id uuid not null references public.profiles (id) on delete cascade,
+  blocked_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker_id, blocked_id),
+  constraint blocks_not_self check (blocker_id <> blocked_id)
+);
+
+create index blocks_blocked_id_idx on public.blocks (blocked_id);
+
+-- Reports are write-only for users; they are reviewed in the dashboard.
+create table public.reports (
+  id uuid primary key default gen_random_uuid (),
+  reporter_id uuid not null references public.profiles (id) on delete cascade,
+  post_id uuid references public.posts (id) on delete set null,
+  reported_user_id uuid references public.profiles (id) on delete cascade,
+  reason text not null,
+  details text,
+  created_at timestamptz not null default now(),
+  constraint reports_target check (post_id is not null or reported_user_id is not null),
+  constraint reports_reason check (reason in ('spam', 'harassment', 'inappropriate', 'other')),
+  constraint reports_details_length check (details is null or char_length(details) <= 500)
+);
+
+alter table public.mutes enable row level security;
+alter table public.blocks enable row level security;
+alter table public.reports enable row level security;
+
+create policy "Users read their own mutes" on public.mutes
+  for select to authenticated using (auth.uid () = muter_id);
+create policy "Users mute as themselves" on public.mutes
+  for insert to authenticated with check (auth.uid () = muter_id);
+create policy "Users unmute as themselves" on public.mutes
+  for delete to authenticated using (auth.uid () = muter_id);
+
+create policy "Users read their own blocks" on public.blocks
+  for select to authenticated using (auth.uid () = blocker_id);
+create policy "Users unblock as themselves" on public.blocks
+  for delete to authenticated using (auth.uid () = blocker_id);
+-- Inserts go through block_user() so the follow/mute cleanup is atomic.
+
+create policy "Users file reports as themselves" on public.reports
+  for insert to authenticated with check (auth.uid () = reporter_id);
+
+-- True when either person has blocked the other. Definer so RLS policies on
+-- other tables can consult blocks the caller isn't allowed to read.
+create or replace function public.blocked_either_way (a uuid, b uuid) returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from blocks
+    where (blocker_id = a and blocked_id = b) or (blocker_id = b and blocked_id = a)
+  );
+$$;
+
+-- Block in one transaction: record it, drop follows and mutes both ways.
+create or replace function public.block_user (target uuid) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid () is null then
+    raise exception 'not signed in';
+  end if;
+  if target = auth.uid () then
+    raise exception 'cannot block yourself';
+  end if;
+  insert into blocks (blocker_id, blocked_id) values (auth.uid (), target)
+  on conflict do nothing;
+  delete from follows
+  where (follower_id = auth.uid () and following_id = target)
+     or (follower_id = target and following_id = auth.uid ());
+  delete from mutes
+  where (muter_id = auth.uid () and muted_id = target)
+     or (muter_id = target and muted_id = auth.uid ());
+end;
+$$;
+
+grant execute on function public.block_user (uuid) to authenticated;
+
+-- Blocked people can't follow or mute each other.
+create policy "No follows across a block" on public.follows
+  as restrictive for insert to authenticated
+  with check (not public.blocked_either_way (follower_id, following_id));
+
+create policy "No mutes across a block" on public.mutes
+  as restrictive for insert to authenticated
+  with check (not public.blocked_either_way (muter_id, muted_id));
+
+-- Content and profiles are invisible across a block, in both directions.
+drop policy "Profiles are readable by signed-in users" on public.profiles;
+create policy "Profiles are readable unless blocked" on public.profiles
+  for select to authenticated
+  using (id = auth.uid () or not public.blocked_either_way (auth.uid (), id));
+
+drop policy "Posts are readable by signed-in users" on public.posts;
+create policy "Posts are readable unless blocked" on public.posts
+  for select to authenticated
+  using (not public.blocked_either_way (auth.uid (), user_id));
+
+drop policy "Comments are readable by signed-in users" on public.comments;
+create policy "Comments are readable unless blocked" on public.comments
+  for select to authenticated
+  using (not public.blocked_either_way (auth.uid (), user_id));
+
+drop policy "Likes are readable by signed-in users" on public.likes;
+create policy "Likes are readable unless blocked" on public.likes
+  for select to authenticated
+  using (not public.blocked_either_way (auth.uid (), user_id));
+
+-- Explore also skips muted people (blocks are already hidden by RLS).
+create or replace function public.explore_chapter (
+  p_cutoff timestamptz,
+  p_limit int,
+  p_after_rank int default null,
+  p_after_created_at timestamptz default null,
+  p_after_id uuid default null
+) returns table (
+  post_id uuid,
+  rank int,
+  created_at timestamptz,
+  cutoff timestamptz
+)
+language sql
+security invoker
+stable
+set search_path = public
+as $$
+  with c as (
+    select least(p_cutoff, now()) as t
+  ),
+  eligible as (
+    select p.id, p.user_id, p.created_at
+    from posts p, c
+    where p.created_at <= c.t
+      and p.user_id <> auth.uid ()
+      and p.user_id not in (
+        select following_id from follows where follower_id = auth.uid ()
+      )
+      and p.user_id not in (
+        select muted_id from mutes where muter_id = auth.uid ()
+      )
+  ),
+  ranked as (
+    select id, created_at,
+      (row_number() over (partition by user_id order by created_at desc, id desc))::int as rank
+    from eligible
+  )
+  select r.id, r.rank, r.created_at, c.t
+  from ranked r, c
+  where p_after_rank is null
+    or r.rank > p_after_rank
+    or (r.rank = p_after_rank
+        and (r.created_at < p_after_created_at
+             or (r.created_at = p_after_created_at and r.id < p_after_id)))
+  order by r.rank, r.created_at desc, r.id desc
+  limit p_limit;
+$$;
+
+-- In-app account deletion (App Store requirement) is NOT a SQL function:
+-- deleting auth.users from SQL trips Supabase's storage guard trigger. It
+-- lives in the `delete-account` Edge Function (supabase/functions), which
+-- removes the user's photos and calls the Auth Admin API; everything else
+-- cascades from auth.users -> profiles.

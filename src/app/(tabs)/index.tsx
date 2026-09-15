@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, StyleSheet } from 'react-native';
 
 import { ChapterDivider } from '@/components/chapter-divider';
@@ -13,7 +13,7 @@ import { CHAPTER_SIZE, type FeedIntent } from '@/constants/feed';
 import { useFeedIntent } from '@/lib/feed-intent';
 import { composeMixChapter } from '@/lib/feed-mix';
 import { useAuth } from '@/lib/auth-context';
-import { useFollows } from '@/lib/follow-context';
+import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import {
@@ -118,7 +118,12 @@ export default function FeedScreen() {
   const { colors } = useTheme();
   const userId = auth?.user.id ?? '';
   const { intent, setIntent, ready: intentReady } = useFeedIntent(userId);
-  const { following, loadError: followError, reload: reloadFollows } = useFollows();
+  const { sets, loadError: followError, reload: reloadRelations } = useRelations();
+  // Catch up reads from people you follow, minus anyone you've muted.
+  const following = useMemo(
+    () => (sets ? new Set([...sets.following].filter((id) => !sets.muted.has(id))) : null),
+    [sets],
+  );
 
   const [session, setSession] = useState<FeedSession | null>(null);
   const [initialError, setInitialError] = useState<string | null>(null);
@@ -248,7 +253,10 @@ export default function FeedScreen() {
   const handleRefresh = async () => {
     setRefreshing(true);
     // Who you follow may have changed elsewhere; the new session should know.
-    const ids = await reloadFollows();
+    const fresh = await reloadRelations();
+    const ids = fresh
+      ? new Set([...fresh.following].filter((id) => !fresh.muted.has(id)))
+      : null;
     if (intent === 'explore' || ids !== null) await startSession(intent, ids);
     setRefreshing(false);
   };
@@ -407,6 +415,13 @@ export default function FeedScreen() {
 
   const openExplore = () => void handleIntentChange('explore');
 
+  /** Blocking is a safety action: their posts leave the screen right away. */
+  const handleAuthorBlocked = (authorId: string) => {
+    setSession((s) =>
+      s ? { ...s, chapters: mapPosts(s.chapters, (p) => (p.user_id === authorId ? null : p)) } : s,
+    );
+  };
+
   // Catch up and Mix can't be built without knowing who you follow. Never
   // fall back to "everyone": that would quietly undo the reader's choice.
   if (intent !== 'explore' && following === null && followError !== null) {
@@ -507,6 +522,7 @@ export default function FeedScreen() {
             onToggleLike={handleToggleLike}
             onOpenComments={(p) => router.push(`/post/${p.id}`)}
             onOpenAuthor={(uid) => router.push(`/user/${uid}`)}
+            onAuthorBlocked={handleAuthorBlocked}
             onDelete={handleDelete}
           />
         )

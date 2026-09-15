@@ -1,10 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { PostImage } from '@/components/post-image';
 import { Spacing, Type } from '@/constants/theme';
 import { timeAgo } from '@/lib/format';
+import { useRelations } from '@/lib/relations-context';
+import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import type { FeedPost } from '@/types';
 
@@ -21,6 +24,11 @@ interface PostCardProps {
    * tappable — your own profile is a tab, not a destination from a post.
    */
   onOpenAuthor?: (userId: string) => void;
+  /**
+   * Called after the reader blocks this post's author from the card's menu,
+   * so the screen can drop their posts right away.
+   */
+  onAuthorBlocked?: (userId: string) => void;
 }
 
 export function PostCard({
@@ -31,9 +39,61 @@ export function PostCard({
   onDelete,
   showCommentButton = true,
   onOpenAuthor,
+  onAuthorBlocked,
 }: PostCardProps) {
   const { colors } = useTheme();
+  const { block, isPending } = useRelations();
   const authorTappable = !isOwn && onOpenAuthor !== undefined;
+
+  const confirmBlock = () => {
+    Alert.alert(
+      `Block ${post.author.display_name}?`,
+      "You won't see each other's posts, comments or profiles, and any follows between you are removed. They won't be told.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Block',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await block(post.user_id);
+              onAuthorBlocked?.(post.user_id);
+            } catch (e) {
+              Alert.alert('Could not block', errorMessage(e));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  /** "…" on someone else's post: report it, or block its author. */
+  const openMenu = () => {
+    const actions: { label: string; destructive?: boolean; run: () => void }[] = [
+      { label: 'Report post', run: () => router.push(`/report?postId=${post.id}`) },
+      { label: `Block ${post.author.display_name}`, destructive: true, run: confirmBlock },
+    ];
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: [...actions.map((a) => a.label), 'Cancel'],
+          destructiveButtonIndex: 1,
+          cancelButtonIndex: actions.length,
+          userInterfaceStyle: colors.background === '#ffffff' ? 'light' : 'dark',
+        },
+        (index) => actions[index]?.run(),
+      );
+    } else {
+      Alert.alert('Post options', undefined, [
+        ...actions.map((a) => ({
+          text: a.label,
+          style: a.destructive ? ('destructive' as const) : ('default' as const),
+          onPress: a.run,
+        })),
+        { text: 'Cancel', style: 'cancel' as const },
+      ]);
+    }
+  };
 
   const confirmDelete = () => {
     Alert.alert('Delete post?', 'This cannot be undone.', [
@@ -78,7 +138,18 @@ export function PostCard({
           >
             <Ionicons name="trash-outline" size={18} color={colors.textTertiary} />
           </Pressable>
-        ) : null}
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="More options"
+            onPress={openMenu}
+            disabled={isPending(post.user_id)}
+            hitSlop={12}
+            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="ellipsis-horizontal" size={18} color={colors.textTertiary} />
+          </Pressable>
+        )}
       </View>
 
       <Text style={[styles.content, { color: colors.text }]}>{post.content}</Text>
