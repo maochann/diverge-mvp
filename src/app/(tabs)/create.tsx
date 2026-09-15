@@ -51,10 +51,14 @@ export default function CreatePostScreen() {
       if (image) {
         imageUrl = await uploadImage('post-images', session.user.id, image);
       }
-      await createPost(session.user.id, content, imageUrl);
+      const postId = await createPost(session.user.id, content, imageUrl);
       setContent('');
       setImage(null);
+      // Show the new post itself so the writer sees it landed. Own posts
+      // don't appear in Catch up (that's for people you follow), so go via
+      // the Feed tab: Back from the post returns to the feed session as it was.
       router.navigate('/');
+      router.push(`/post/${postId}`);
     } catch (e) {
       Alert.alert('Could not publish post', errorMessage(e));
     } finally {

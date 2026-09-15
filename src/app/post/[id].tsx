@@ -169,6 +169,7 @@ export default function PostDetailScreen() {
               onOpenComments={() => undefined}
               onDelete={handleDeletePost}
               showCommentButton={false}
+              onOpenAuthor={(uid) => router.push(`/user/${uid}`)}
             />
             {comments.length > 0 ? (
               <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
@@ -179,10 +180,33 @@ export default function PostDetailScreen() {
         }
         renderItem={({ item }) => (
           <View style={styles.comment}>
-            <Avatar url={item.author.avatar_url} name={item.author.display_name} size={32} />
+            <Pressable
+              accessibilityRole={item.user_id === userId ? undefined : 'button'}
+              accessibilityLabel={
+                item.user_id === userId
+                  ? undefined
+                  : `Open ${item.author.display_name}'s profile`
+              }
+              onPress={() => router.push(`/user/${item.user_id}`)}
+              disabled={item.user_id === userId}
+              hitSlop={4}
+              style={({ pressed }) => [
+                styles.commentAvatar,
+                pressed && item.user_id !== userId && styles.pressed,
+              ]}
+            >
+              <Avatar url={item.author.avatar_url} name={item.author.display_name} size={32} />
+            </Pressable>
             <View style={styles.commentBody}>
               <Text style={[styles.commentMeta, { color: colors.textSecondary }]} numberOfLines={1}>
-                <Text style={[styles.commentName, { color: colors.text }]}>
+                <Text
+                  style={[styles.commentName, { color: colors.text }]}
+                  onPress={
+                    item.user_id === userId
+                      ? undefined
+                      : () => router.push(`/user/${item.user_id}`)
+                  }
+                >
                   {item.author.display_name}
                 </Text>
                 {'  '}@{item.author.username} · {timeAgo(item.created_at)}
@@ -277,6 +301,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
     alignItems: 'flex-start',
+  },
+  commentAvatar: {
+    borderRadius: Radius.full,
   },
   commentBody: {
     flex: 1,

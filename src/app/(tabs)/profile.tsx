@@ -1,6 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
@@ -9,6 +10,7 @@ import { PostCard } from '@/components/post-card';
 import { PostSkeletonList } from '@/components/post-skeleton';
 import { Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { useFollows } from '@/lib/follow-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { deletePost, fetchUserPosts, setLiked } from '@/services/posts';
@@ -16,6 +18,7 @@ import type { FeedPost } from '@/types';
 
 export default function ProfileScreen() {
   const { session, profile, refreshProfile } = useAuth();
+  const { following } = useFollows();
   const { colors } = useTheme();
   const userId = session?.user.id ?? '';
 
@@ -121,6 +124,23 @@ export default function ProfileScreen() {
             <Text style={[styles.bio, { color: colors.text }]}>{profile.bio}</Text>
           ) : null}
 
+          {/* Only your own following is ever shown; nobody has a follower count. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="People you follow"
+            onPress={() => router.push('/following')}
+            hitSlop={4}
+            style={({ pressed }) => [styles.followingRow, pressed && styles.pressed]}
+          >
+            <Text style={[styles.followingLabel, { color: colors.text }]}>
+              Following
+              {following !== null ? (
+                <Text style={{ color: colors.textSecondary }}> · {following.size}</Text>
+              ) : null}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+          </Pressable>
+
           <View style={styles.metaRow}>
             <Text style={[styles.count, { color: colors.textSecondary }]}>{countLabel}</Text>
             <Button
@@ -189,6 +209,17 @@ const styles = StyleSheet.create({
   displayName: Type.title,
   username: Type.body,
   bio: Type.body,
+  followingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    alignSelf: 'flex-start',
+    minHeight: 28,
+  },
+  followingLabel: Type.captionStrong,
+  pressed: {
+    opacity: 0.6,
+  },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',

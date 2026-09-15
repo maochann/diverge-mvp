@@ -161,3 +161,92 @@ create policy "Users can delete their own images" on storage.objects
     bucket_id in ('avatars', 'post-images')
     and (storage.foldername (name))[1] = auth.uid ()::text
   );
+
+-- ---------------------------------------------------------------------------
+-- Follow System (added 2026-09-15)
+-- One row per (follower, followed). All accounts are public; following is an
+-- explicit choice, so nothing here is derived from behaviour. Applied on an
+-- existing database by running just this section in the SQL editor.
+-- ---------------------------------------------------------------------------
+
+create table public.follows (
+  follower_id uuid not null references public.profiles (id) on delete cascade,
+  following_id uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower_id, following_id),
+  constraint follows_not_self check (follower_id <> following_id)
+);
+
+-- Cascade deletes and any future "followers of X" lookups.
+create index follows_following_id_idx on public.follows (following_id);
+
+alter table public.follows enable row level security;
+
+-- Only your own outgoing follows are visible: nobody can read anyone else's
+-- follow graph (no follower counts or lists anywhere in V1).
+create policy "Users read their own follows" on public.follows
+  for select to authenticated using (auth.uid () = follower_id);
+
+create policy "Users follow as themselves" on public.follows
+  for insert to authenticated with check (auth.uid () = follower_id);
+
+create policy "Users unfollow as themselves" on public.follows
+  for delete to authenticated using (auth.uid () = follower_id);
+
+-- Explore ordering: people-balanced, not popularity-based.
+-- Eligible posts are those by people the caller does not follow (and not the
+-- caller's own). Each person's posts are ranked newest-first; the feed is
+-- ordered by rank, then recency, so every eligible person appears once before
+-- anyone appears a second time. Likes, follower counts and viewing history
+-- are deliberately not inputs.
+--
+-- p_cutoff freezes the session: posts created after it never enter, so ranks
+-- and cursors stay stable while the reader is on a chapter. The effective
+-- cutoff (clamped to now()) is returned so the client can reuse it.
+-- Runs as the caller, so posts/follows RLS applies.
+create or replace function public.explore_chapter (
+  p_cutoff timestamptz,
+  p_limit int,
+  p_after_rank int default null,
+  p_after_created_at timestamptz default null,
+  p_after_id uuid default null
+) returns table (
+  post_id uuid,
+  rank int,
+  created_at timestamptz,
+  cutoff timestamptz
+)
+language sql
+security invoker
+stable
+set search_path = public
+as $$
+  with c as (
+    select least(p_cutoff, now()) as t
+  ),
+  eligible as (
+    select p.id, p.user_id, p.created_at
+    from posts p, c
+    where p.created_at <= c.t
+      and p.user_id <> auth.uid ()
+      and p.user_id not in (
+        select following_id from follows where follower_id = auth.uid ()
+      )
+  ),
+  ranked as (
+    select id, created_at,
+      (row_number() over (partition by user_id order by created_at desc, id desc))::int as rank
+    from eligible
+  )
+  select r.id, r.rank, r.created_at, c.t
+  from ranked r, c
+  where p_after_rank is null
+    or r.rank > p_after_rank
+    or (r.rank = p_after_rank
+        and (r.created_at < p_after_created_at
+             or (r.created_at = p_after_created_at and r.id < p_after_id)))
+  order by r.rank, r.created_at desc, r.id desc
+  limit p_limit;
+$$;
+
+grant execute on function public.explore_chapter (timestamptz, int, int, timestamptz, uuid) to authenticated;
