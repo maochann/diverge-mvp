@@ -16,10 +16,12 @@ function clampRatio(width: number, height: number): number {
 
 interface PostImageProps {
   uri: string;
+  /** Fill the parent instead of sizing by the picture's own ratio (multi-photo pager). */
+  fill?: boolean;
 }
 
 /** Full-width post image that keeps the picture's own aspect ratio (within limits). */
-export function PostImage({ uri }: PostImageProps) {
+export function PostImage({ uri, fill = false }: PostImageProps) {
   const { colors } = useTheme();
   const [ratio, setRatio] = useState(() => ratioCache.get(uri) ?? ImageRatio.fallback);
 
@@ -28,6 +30,18 @@ export function PostImage({ uri }: PostImageProps) {
     ratioCache.set(uri, next);
     if (next !== ratio) setRatio(next);
   };
+
+  if (fill) {
+    return (
+      <Image
+        source={{ uri }}
+        style={[styles.fill, { backgroundColor: colors.surface }]}
+        contentFit="cover"
+        transition={150}
+        accessibilityLabel="Post image"
+      />
+    );
+  }
 
   return (
     <Image
@@ -45,5 +59,9 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     borderRadius: Radius.lg,
+  },
+  fill: {
+    width: '100%',
+    height: '100%',
   },
 });
