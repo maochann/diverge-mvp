@@ -69,6 +69,22 @@ const SECOND_RING_GAP = 48;
 const EDGE_MARGIN = 46;
 
 /**
+ * Where a person sits once they are inside the circle: scattered by hash
+ * between 40% and 70% of the boundary, never on the centre avatar. Used
+ * both for the inside marks and as the destination when someone is followed
+ * from the canvas.
+ */
+export function insidePositionFor(
+  id: string,
+  center: { x: number; y: number },
+  boundaryRadius: number,
+): InsidePoint {
+  const r = boundaryRadius * (0.4 + fractionFor(id) * 0.3);
+  const angle = angleFor(id);
+  return { id, x: center.x + Math.cos(angle) * r, y: center.y + Math.sin(angle) * r };
+}
+
+/**
  * Lay out the canvas. `outsideIds` are people beyond the circle (nodes),
  * `insideIds` are people the reader follows (small marks inside).
  */
@@ -79,6 +95,7 @@ export function layoutCanvas(
 ): CanvasLayout {
   const cx = box.width / 2;
   const cy = box.height / 2;
+  const center = { x: cx, y: cy };
   const maxRadius = Math.min(box.width, box.height) / 2 - EDGE_MARGIN;
 
   const byAngle = [...outsideIds].sort((a, b) => angleFor(a) - angleFor(b));
@@ -113,18 +130,10 @@ export function layoutCanvas(
   const placed = [...place(1, ring1, ring1Radius), ...place(2, ring2, outerRadius)];
   const byId = new Map(placed.map((p) => [p.id, p]));
 
-  // Inside marks: scattered by hash between 40% and 70% of the boundary,
-  // never overlapping the centre avatar.
-  const inside = insideIds.map((id) => {
-    const r = boundaryRadius * (0.4 + fractionFor(id) * 0.3);
-    const angle = angleFor(id);
-    return { id, x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
-  });
-
   return {
-    center: { x: cx, y: cy },
+    center,
     boundaryRadius,
     outside: outsideIds.map((id) => byId.get(id) as CanvasPoint),
-    inside,
+    inside: insideIds.map((id) => insidePositionFor(id, center, boundaryRadius)),
   };
 }

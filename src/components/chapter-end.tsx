@@ -1,4 +1,12 @@
+import { useEffect } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { Button } from '@/components/button';
 import { ForkLine } from '@/components/fork-line';
@@ -26,6 +34,18 @@ type ChapterEndProps =
  * the feed stops here until the reader chooses otherwise. The fork marks
  * the one place the feed branches.
  */
+/** A short rule that draws itself once: the quiet mark of an ending. */
+function EndingRule({ color }: { color: string }) {
+  const reducedMotion = useReducedMotion();
+  const width = useSharedValue(reducedMotion ? 24 : 0);
+  useEffect(() => {
+    if (reducedMotion) return;
+    width.set(withTiming(24, { duration: 600, easing: Easing.out(Easing.cubic) }));
+  }, [reducedMotion, width]);
+  const style = useAnimatedStyle(() => ({ width: width.value }));
+  return <Animated.View style={[styles.shortRule, { backgroundColor: color }, style]} />;
+}
+
 export function ChapterEnd(props: ChapterEndProps) {
   const { colors } = useTheme();
   const { height } = useWindowDimensions();
@@ -34,7 +54,7 @@ export function ChapterEnd(props: ChapterEndProps) {
   if (props.variant === 'caught-up') {
     return (
       <View style={[styles.card, { minHeight }]}>
-        <View style={[styles.shortRule, { backgroundColor: colors.textTertiary }]} />
+        <EndingRule color={colors.textTertiary} />
         <Text style={[styles.title, { color: colors.text }]}>You&apos;re caught up</Text>
         <Text style={[styles.detail, { color: colors.textSecondary }]}>
           Nothing new right now.
@@ -92,7 +112,6 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
   },
   shortRule: {
-    width: 24,
     height: 1,
     marginBottom: Spacing.lg,
   },
