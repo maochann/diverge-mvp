@@ -29,8 +29,15 @@ interface PostCardProps {
    * so the screen can drop their posts right away.
    */
   onAuthorBlocked?: (userId: string) => void;
+  /** One quiet line above the author, e.g. "Outside your circle" in Mix. */
+  provenance?: string | null;
 }
 
+/**
+ * A post as a paragraph, not a card: name and time on one line, the text,
+ * the photos, and a faint row of actions. Separation between posts is
+ * whitespace; hairlines are saved for chapter boundaries.
+ */
 export function PostCard({
   post,
   isOwn,
@@ -40,8 +47,9 @@ export function PostCard({
   showCommentButton = true,
   onOpenAuthor,
   onAuthorBlocked,
+  provenance,
 }: PostCardProps) {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const { block, isPending } = useRelations();
   const authorTappable = !isOwn && onOpenAuthor !== undefined;
 
@@ -82,7 +90,7 @@ export function PostCard({
           options: [...actions.map((a) => a.label), 'Cancel'],
           destructiveButtonIndex: 1,
           cancelButtonIndex: actions.length,
-          userInterfaceStyle: colors.background === '#ffffff' ? 'light' : 'dark',
+          userInterfaceStyle: scheme,
         },
         (index) => actions[index]?.run(),
       );
@@ -106,58 +114,39 @@ export function PostCard({
   };
 
   return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: colors.background, borderBottomColor: colors.border },
-      ]}
-    >
+    <View style={styles.post}>
+      {provenance ? (
+        <Text style={[styles.provenance, { color: colors.tint }]}>{provenance}</Text>
+      ) : null}
+
       <View style={styles.header}>
         <Pressable
           accessibilityRole={authorTappable ? 'button' : undefined}
-          accessibilityLabel={authorTappable ? `Open ${post.author.display_name}'s profile` : undefined}
+          accessibilityLabel={
+            authorTappable ? `Open ${post.author.display_name}'s profile` : undefined
+          }
           onPress={authorTappable ? () => onOpenAuthor(post.user_id) : undefined}
           disabled={!authorTappable}
           hitSlop={4}
           style={({ pressed }) => [styles.author, pressed && authorTappable && styles.pressed]}
         >
-          <Avatar url={post.author.avatar_url} name={post.author.display_name} />
-          <View style={styles.headerText}>
-            <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={1}>
-              {post.author.display_name}
-            </Text>
-            <Text style={[styles.meta, { color: colors.textSecondary }]} numberOfLines={1}>
-              @{post.author.username} · {timeAgo(post.created_at)}
-            </Text>
-          </View>
+          <Avatar url={post.author.avatar_url} name={post.author.display_name} size={28} />
+          <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={1}>
+            {post.author.display_name}
+          </Text>
         </Pressable>
-        {isOwn ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Delete post"
-            onPress={confirmDelete}
-            hitSlop={12}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="trash-outline" size={18} color={colors.textTertiary} />
-          </Pressable>
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="More options"
-            onPress={openMenu}
-            disabled={isPending(post.user_id)}
-            hitSlop={12}
-            style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="ellipsis-horizontal" size={18} color={colors.textTertiary} />
-          </Pressable>
-        )}
+        <Text style={[styles.time, { color: colors.textTertiary }]}>
+          {timeAgo(post.created_at)}
+        </Text>
       </View>
 
       <Text style={[styles.content, { color: colors.text }]}>{post.content}</Text>
 
-      <PostImages urls={post.image_urls} />
+      {post.image_urls.length > 0 ? (
+        <View style={styles.images}>
+          <PostImages urls={post.image_urls} />
+        </View>
+      ) : null}
 
       <View style={styles.actions}>
         <Pressable
@@ -169,13 +158,13 @@ export function PostCard({
         >
           <Ionicons
             name={post.liked_by_me ? 'heart' : 'heart-outline'}
-            size={22}
-            color={post.liked_by_me ? colors.like : colors.textSecondary}
+            size={18}
+            color={post.liked_by_me ? colors.like : colors.textTertiary}
           />
           <Text
             style={[
               styles.actionCount,
-              { color: post.liked_by_me ? colors.like : colors.textSecondary },
+              { color: post.liked_by_me ? colors.like : colors.textTertiary },
             ]}
           >
             {post.like_count}
@@ -189,24 +178,50 @@ export function PostCard({
             hitSlop={8}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <Ionicons name="chatbubble-outline" size={20} color={colors.textSecondary} />
-            <Text style={[styles.actionCount, { color: colors.textSecondary }]}>
+            <Ionicons name="chatbubble-outline" size={17} color={colors.textTertiary} />
+            <Text style={[styles.actionCount, { color: colors.textTertiary }]}>
               {post.comment_count}
             </Text>
           </Pressable>
         ) : null}
+        <View style={styles.spacer} />
+        {isOwn ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Delete post"
+            onPress={confirmDelete}
+            hitSlop={12}
+            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+          >
+            <Ionicons name="trash-outline" size={17} color={colors.textTertiary} />
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="More options"
+            onPress={openMenu}
+            disabled={isPending(post.user_id)}
+            hitSlop={12}
+            style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+          >
+            <Ionicons name="ellipsis-horizontal" size={18} color={colors.textTertiary} />
+          </Pressable>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  post: {
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
-    gap: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: Spacing.sm + 2,
+  },
+  provenance: {
+    ...Type.caption,
+    marginBottom: -2,
   },
   header: {
     flexDirection: 'row',
@@ -217,31 +232,38 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
+    gap: Spacing.sm + 2,
   },
-  headerText: {
-    flex: 1,
+  displayName: {
+    ...Type.bodyStrong,
+    flexShrink: 1,
   },
-  displayName: Type.bodyStrong,
-  meta: Type.caption,
-  iconButton: {
-    padding: Spacing.xs,
+  time: {
+    ...Type.caption,
+    fontVariant: ['tabular-nums'],
   },
   content: Type.body,
+  images: {
+    marginTop: Spacing.xs,
+  },
   actions: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: Spacing.xl,
     marginTop: Spacing.xs,
   },
   action: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.xs + 2,
+    gap: Spacing.xs + 1,
     minHeight: 32,
   },
   actionCount: {
     ...Type.caption,
     fontVariant: ['tabular-nums'],
+  },
+  spacer: {
+    flex: 1,
   },
   pressed: {
     opacity: 0.6,
