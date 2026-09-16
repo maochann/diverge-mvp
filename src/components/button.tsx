@@ -1,11 +1,6 @@
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  type ViewStyle,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, type ViewStyle } from 'react-native';
 
+import { Tappable } from '@/components/tappable';
 import { Radius, Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/lib/theme';
 
@@ -49,18 +44,17 @@ export function Button({
         : colors.text;
 
   return (
-    <Pressable
+    <Tappable
       accessibilityRole="button"
       accessibilityState={{ disabled: blocked, busy: loading }}
       onPress={onPress}
       disabled={blocked}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         compact ? styles.compact : styles.full,
         {
           backgroundColor: background,
           borderColor: variant === 'outline' ? colors.border : 'transparent',
-          opacity: blocked ? 0.5 : pressed ? 0.75 : 1,
         },
         style,
       ]}
@@ -72,7 +66,7 @@ export function Button({
           {title}
         </Text>
       )}
-    </Pressable>
+    </Tappable>
   );
 }
 

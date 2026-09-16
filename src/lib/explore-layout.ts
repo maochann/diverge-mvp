@@ -97,10 +97,13 @@ export function layoutCanvas(
     const offset = angleFor(members[0]);
     return members.map((id, index) => {
       const angle = offset + (index / members.length) * Math.PI * 2 - Math.PI / 2;
+      // A few points of give per person so the ring reads as hand-placed,
+      // not plotted. Stable per id; far too small to read as distance.
+      const give = (fractionFor(id) - 0.5) * 10;
       return {
         id,
-        x: cx + Math.cos(angle) * radius,
-        y: cy + Math.sin(angle) * radius,
+        x: cx + Math.cos(angle) * (radius + give),
+        y: cy + Math.sin(angle) * (radius + give),
         ring,
         size: NODE_SIZE[ring],
       };
