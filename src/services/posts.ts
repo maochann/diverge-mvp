@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import type { Comment, FeedPost, PostAuthor } from '@/types';
 
 const POST_FIELDS = `
-  id, user_id, content, image_url, created_at,
+  id, user_id, content, image_url, image_urls, created_at,
   author:profiles!posts_user_id_fkey ( username, display_name, avatar_url ),
   likes ( user_id ),
   comments ( count )
@@ -13,6 +13,7 @@ interface PostRow {
   user_id: string;
   content: string;
   image_url: string | null;
+  image_urls: string[] | null;
   created_at: string;
   author: PostAuthor;
   likes: { user_id: string }[];
@@ -25,6 +26,13 @@ function toFeedPost(row: PostRow, viewerId: string): FeedPost {
     user_id: row.user_id,
     content: row.content,
     image_url: row.image_url,
+    // Posts from before multi-photo have only image_url.
+    image_urls:
+      row.image_urls && row.image_urls.length > 0
+        ? row.image_urls
+        : row.image_url
+          ? [row.image_url]
+          : [],
     created_at: row.created_at,
     author: row.author,
     like_count: row.likes.length,
@@ -243,11 +251,16 @@ export async function fetchPost(
 export async function createPost(
   userId: string,
   content: string,
-  imageUrl: string | null,
+  imageUrls: string[],
 ): Promise<string> {
   const { data, error } = await supabase
     .from('posts')
-    .insert({ user_id: userId, content: content.trim(), image_url: imageUrl })
+    .insert({
+      user_id: userId,
+      content: content.trim(),
+      image_url: imageUrls[0] ?? null,
+      image_urls: imageUrls,
+    })
     .select('id')
     .single();
   if (error) throw new Error(error.message);

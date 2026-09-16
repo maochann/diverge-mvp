@@ -15,14 +15,18 @@ interface PickImageOptions {
   square?: boolean;
 }
 
-/** Open the photo library and return one image, or null if cancelled. */
-export async function pickImage({
-  square = false,
-}: PickImageOptions = {}): Promise<PickedImage | null> {
+async function requirePhotoAccess() {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
     throw new Error('Photo library access is needed to attach an image.');
   }
+}
+
+/** Open the photo library and return one image, or null if cancelled. */
+export async function pickImage({
+  square = false,
+}: PickImageOptions = {}): Promise<PickedImage | null> {
+  await requirePhotoAccess();
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     allowsEditing: square,
@@ -31,6 +35,27 @@ export async function pickImage({
   });
   if (result.canceled) return null;
   return prepareForUpload(result.assets[0]);
+}
+
+/**
+ * Open the photo library for up to `limit` images, in the order picked.
+ * Returns an empty array if cancelled.
+ */
+export async function pickImages(limit: number): Promise<PickedImage[]> {
+  await requirePhotoAccess();
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    allowsMultipleSelection: true,
+    selectionLimit: limit,
+    orderedSelection: true,
+    quality: 1,
+  });
+  if (result.canceled) return [];
+  const prepared: PickedImage[] = [];
+  for (const asset of result.assets.slice(0, limit)) {
+    prepared.push(await prepareForUpload(asset));
+  }
+  return prepared;
 }
 
 /** Longest side of an uploaded image, in pixels. Larger photos are scaled down. */
