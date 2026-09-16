@@ -17,6 +17,7 @@ import {
 import { Button } from '@/components/button';
 import { ImageRatio, Radius, Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
+import { decisionHaptic } from '@/lib/haptics';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { createPost } from '@/services/posts';
@@ -62,6 +63,7 @@ export default function CreatePostScreen() {
       }
       setUploadProgress(null);
       const postId = await createPost(session.user.id, content, imageUrls);
+      decisionHaptic();
       setContent('');
       setImages([]);
       // Show the new post itself so the writer sees it landed. Own posts

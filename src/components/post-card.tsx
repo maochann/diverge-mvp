@@ -120,7 +120,7 @@ export function PostCard({
   };
 
   return (
-    <View style={styles.post}>
+    <View style={[styles.post, images.length > 0 && styles.postWithImages]}>
       <View style={styles.header}>
         <Pressable
           accessibilityRole={authorTappable ? 'button' : undefined}
@@ -227,6 +227,10 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
     paddingBottom: Spacing.md,
     gap: Spacing.sm,
+  },
+  postWithImages: {
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.lg,
   },
   beyondMark: {
     width: 6,

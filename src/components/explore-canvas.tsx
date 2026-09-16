@@ -55,9 +55,12 @@ export function ExploreCanvas({
     if (width !== box.width || height !== box.height) setBox({ width, height });
   };
 
+  const insideSet = new Set(insideIds);
+  // People followed during this session stay where they are (the session is
+  // a snapshot) but are no longer drawn as inside marks twice.
   const layout = layoutCanvas(
     session.people.map((p) => p.id),
-    insideIds,
+    insideIds.filter((id) => !session.people.some((p) => p.id === id)),
     box,
   );
   const remaining = unseenCount(session);
@@ -75,6 +78,7 @@ export function ExploreCanvas({
 
   const footer = complete ? (
     <View style={styles.ending}>
+      <View style={[styles.endingRule, { backgroundColor: colors.textTertiary }]} />
       <Text style={[styles.endingTitle, { color: colors.text }]}>
         {session.round === 1
           ? 'That’s everyone beyond your circle.'
@@ -214,7 +218,7 @@ export function ExploreCanvas({
               <Avatar url={me?.avatar_url ?? null} name={me?.display_name ?? 'You'} size={CENTER_SIZE} />
             </View>
 
-            {layout.outside.map((point) => {
+            {layout.outside.map((point, index) => {
               const person = session.people.find((p) => p.id === point.id);
               if (!person) return null;
               const post = postForRound(person, session.round);
@@ -233,6 +237,8 @@ export function ExploreCanvas({
                     seen={session.seen.has(person.id)}
                     postedAt={post?.created_at ?? null}
                     onPress={post ? () => onOpenPerson(person.id) : null}
+                    followed={insideSet.has(person.id)}
+                    appearDelay={40 * index}
                   />
                 </View>
               );
@@ -283,6 +289,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.xl,
     gap: Spacing.md,
+  },
+  endingRule: {
+    width: 24,
+    height: 1,
+    marginBottom: Spacing.xs,
   },
   endingTitle: {
     ...Type.chapter,

@@ -34,7 +34,7 @@ export function ChapterEnd(props: ChapterEndProps) {
   if (props.variant === 'caught-up') {
     return (
       <View style={[styles.card, { minHeight }]}>
-        <View style={[styles.ruleTop, { backgroundColor: colors.border }]} />
+        <View style={[styles.shortRule, { backgroundColor: colors.textTertiary }]} />
         <Text style={[styles.title, { color: colors.text }]}>You&apos;re caught up</Text>
         <Text style={[styles.detail, { color: colors.textSecondary }]}>
           Nothing new right now.
@@ -91,9 +91,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: StyleSheet.hairlineWidth,
   },
-  ruleTop: {
-    alignSelf: 'stretch',
-    height: StyleSheet.hairlineWidth,
+  shortRule: {
+    width: 24,
+    height: 1,
     marginBottom: Spacing.lg,
   },
   title: {
