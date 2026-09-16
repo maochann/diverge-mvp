@@ -60,8 +60,8 @@ interface PersonNodeProps {
 const NUDGE_LIMIT = 12;
 /** How much of the finger's travel the node follows (resistance). */
 const NUDGE_FOLLOW = 0.4;
-/** Idle breathing: a few points, over a few seconds, out of phase per person. */
-const DRIFT = 5;
+/** Idle breathing: several points, over a few seconds, out of phase per person. */
+const DRIFT = 9;
 /** How far a nudge is felt by neighbours, in points. */
 const RIPPLE_REACH = 170;
 /** Size of the mark a person becomes once inside the circle. */
@@ -103,6 +103,7 @@ export function PersonNode({
 
   const driftX = useSharedValue(0);
   const driftY = useSharedValue(0);
+  const breath = useSharedValue(1);
   const nudgeX = useSharedValue(0);
   const nudgeY = useSharedValue(0);
   const scale = useSharedValue(reducedMotion ? 1 : 0.92);
@@ -131,11 +132,19 @@ export function PersonNode({
     if (reducedMotion || quiet) {
       driftX.set(withTiming(0, { duration: Motion.slow }));
       driftY.set(withTiming(0, { duration: Motion.slow }));
+      breath.set(withTiming(1, { duration: Motion.slow }));
       return;
     }
+    breath.set(
+      withRepeat(
+        withTiming(1.04, { duration: 2400 + fractionFor(id) * 1200, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true,
+      ),
+    );
     const f = fractionFor(id);
-    const periodX = 4000 + f * 3000;
-    const periodY = 4500 + (1 - f) * 2500;
+    const periodX = 2600 + f * 1800;
+    const periodY = 3000 + (1 - f) * 1600;
     driftX.set(
       withRepeat(
         withTiming(DRIFT * (f > 0.5 ? 1 : -1), {
@@ -156,7 +165,7 @@ export function PersonNode({
         true,
       ),
     );
-  }, [id, quiet, reducedMotion, driftX, driftY]);
+  }, [id, quiet, reducedMotion, driftX, driftY, breath]);
 
   // Seen: the ring fades and the node settles back.
   // Followed: the ring draws in, then the person crosses the boundary and
@@ -249,7 +258,7 @@ export function PersonNode({
       transform: [
         { translateX: driftX.value + nudgeX.value + swayX + travelX.value },
         { translateY: driftY.value + nudgeY.value + swayY + travelY.value },
-        { scale: scale.value * shrink.value },
+        { scale: scale.value * shrink.value * breath.value },
       ],
     };
   });
