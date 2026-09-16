@@ -1,13 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Animated, {
+  Easing,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import Svg, { Circle, Line } from 'react-native-svg';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
-import { PersonNode } from '@/components/person-node';
+import { PersonNode, type Disturbance } from '@/components/person-node';
 import { Spacing, Type } from '@/constants/theme';
-import { layoutCanvas } from '@/lib/explore-layout';
+import { insidePositionFor, layoutCanvas } from '@/lib/explore-layout';
 import {
   availableIn,
   hasNextRound,
@@ -19,6 +28,9 @@ import {
 import { timeAgo } from '@/lib/format';
 import { useTheme } from '@/lib/theme';
 import type { Profile } from '@/types';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const AnimatedLine = Animated.createAnimatedComponent(Line);
 
 interface ExploreCanvasProps {
   session: ExploreSession;
@@ -32,10 +44,26 @@ interface ExploreCanvasProps {
 
 const CENTER_SIZE = 28;
 const INSIDE_MARK = 6;
+/** How long the circle takes to draw itself when the space opens. */
+const DRAW_MS = 700;
+/** Nodes start settling in once the circle is mostly drawn. */
+const NODES_AFTER_MS = 450;
+
+/** A short rule that draws itself once, marking an ending. */
+function EndingRule({ color }: { color: string }) {
+  const reducedMotion = useReducedMotion();
+  const width = useSharedValue(reducedMotion ? 24 : 0);
+  useEffect(() => {
+    if (reducedMotion) return;
+    width.set(withTiming(24, { duration: 600, easing: Easing.out(Easing.cubic) }));
+  }, [reducedMotion, width]);
+  const style = useAnimatedStyle(() => ({ width: width.value }));
+  return <Animated.View style={[styles.endingRule, { backgroundColor: color }, style]} />;
+}
 
 /**
- * Explore as a space rather than a stream. The reader's circle is drawn as
- * a single hairline; the people they follow sit inside it as small marks,
+ * Explore as a space rather than a stream. The reader's circle draws itself
+ * as a single hairline; the people they follow sit inside it as small marks,
  * and everyone else who has posted is placed once, just beyond it. Nothing
  * here ranks people — position and size carry no meaning.
  */
@@ -47,22 +75,74 @@ export function ExploreCanvas({
   onNextRound,
 }: ExploreCanvasProps) {
   const { colors } = useTheme();
+  const reducedMotion = useReducedMotion();
   const [box, setBox] = useState({ width: 0, height: 0 });
   const [asList, setAsList] = useState(false);
+
+  // The circle draws on (stroke dash offset from full circumference to 0).
+  const drawn = useSharedValue(reducedMotion ? 1 : 0);
+  // A line from the reader to the person they just opened, briefly.
+  const reachX = useSharedValue(0);
+  const reachY = useSharedValue(0);
+  const reachProgress = useSharedValue(0);
+  const reachOpacity = useSharedValue(0);
+  // One disturbance shared by every node (see PersonNode).
+  const disturbance: Disturbance = {
+    x: useSharedValue(-9999),
+    y: useSharedValue(-9999),
+    dx: useSharedValue(0),
+    dy: useSharedValue(0),
+    strength: useSharedValue(0),
+  };
 
   const handleLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     if (width !== box.width || height !== box.height) setBox({ width, height });
   };
 
+  useEffect(() => {
+    if (reducedMotion || box.width === 0) return;
+    drawn.set(withTiming(1, { duration: DRAW_MS, easing: Easing.inOut(Easing.cubic) }));
+    // Only when the space first appears.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [box.width > 0]);
+
   const insideSet = new Set(insideIds);
   // People followed during this session stay where they are (the session is
-  // a snapshot) but are no longer drawn as inside marks twice.
+  // a snapshot); their own node becomes the mark, so they are not drawn twice.
   const layout = layoutCanvas(
     session.people.map((p) => p.id),
     insideIds.filter((id) => !session.people.some((p) => p.id === id)),
     box,
   );
+  const { center, boundaryRadius } = layout;
+  const circumference = 2 * Math.PI * boundaryRadius;
+
+  const circleProps = useAnimatedProps(() => ({
+    strokeDashoffset: circumference * (1 - drawn.value),
+  }));
+  const lineProps = useAnimatedProps(() => ({
+    x2: center.x + (reachX.value - center.x) * reachProgress.value,
+    y2: center.y + (reachY.value - center.y) * reachProgress.value,
+    opacity: reachOpacity.value,
+  }));
+
+  /** Reaching out: a line runs from you to them and fades as the sheet opens. */
+  const openPerson = (personId: string) => {
+    const point = layout.outside.find((p) => p.id === personId);
+    if (point && !reducedMotion) {
+      reachX.set(point.x);
+      reachY.set(point.y);
+      reachProgress.set(0);
+      reachOpacity.set(1);
+      reachProgress.set(withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) }));
+      reachOpacity.set(
+        withSequence(withTiming(1, { duration: 200 }), withTiming(0, { duration: 350 })),
+      );
+    }
+    onOpenPerson(personId);
+  };
+
   const remaining = unseenCount(session);
   const complete = roundComplete(session);
   const more = hasNextRound(session);
@@ -78,11 +158,9 @@ export function ExploreCanvas({
 
   const footer = complete ? (
     <View style={styles.ending}>
-      <View style={[styles.endingRule, { backgroundColor: colors.textTertiary }]} />
+      <EndingRule color={colors.textTertiary} />
       <Text style={[styles.endingTitle, { color: colors.text }]}>
-        {session.round === 1
-          ? 'That’s everyone beyond your circle.'
-          : 'That’s everyone, again.'}
+        {session.round === 1 ? 'That’s everyone beyond your circle.' : 'That’s everyone, again.'}
       </Text>
       {more ? (
         <Button title="One more from each" variant="outline" compact onPress={onNextRound} />
@@ -165,15 +243,13 @@ export function ExploreCanvas({
     );
   }
 
-  const { center, boundaryRadius } = layout;
-
   return (
     <View style={styles.fill}>
       {toggle}
       <View style={styles.canvas} onLayout={handleLayout}>
         {box.width > 0 ? (
           <>
-            {/* The circle itself: one hairline, no fill, no meaning in radius. */}
+            {/* The circle itself: one hairline that draws on, no fill, no meaning in radius. */}
             <Svg
               width={box.width}
               height={box.height}
@@ -181,13 +257,25 @@ export function ExploreCanvas({
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >
-              <Circle
+              <AnimatedCircle
                 cx={center.x}
                 cy={center.y}
                 r={boundaryRadius}
                 stroke={colors.border}
                 strokeWidth={StyleSheet.hairlineWidth * 2}
+                strokeDasharray={`${circumference} ${circumference}`}
+                animatedProps={circleProps}
                 fill="none"
+                // Start drawing from the top.
+                transform={`rotate(-90 ${center.x} ${center.y})`}
+              />
+              <AnimatedLine
+                x1={center.x}
+                y1={center.y}
+                stroke={colors.tint}
+                strokeWidth={1}
+                strokeLinecap="round"
+                animatedProps={lineProps}
               />
             </Svg>
 
@@ -222,6 +310,7 @@ export function ExploreCanvas({
               const person = session.people.find((p) => p.id === point.id);
               if (!person) return null;
               const post = postForRound(person, session.round);
+              const followed = insideSet.has(person.id);
               return (
                 <View
                   key={person.id}
@@ -234,11 +323,13 @@ export function ExploreCanvas({
                     id={person.id}
                     author={person.author}
                     size={point.size}
+                    at={{ x: point.x, y: point.y }}
                     seen={session.seen.has(person.id)}
                     postedAt={post?.created_at ?? null}
-                    onPress={post ? () => onOpenPerson(person.id) : null}
-                    followed={insideSet.has(person.id)}
-                    appearDelay={40 * index}
+                    onPress={post ? () => openPerson(person.id) : null}
+                    moveTo={followed ? insidePositionFor(person.id, center, boundaryRadius) : null}
+                    appearDelay={NODES_AFTER_MS + 40 * index}
+                    disturbance={disturbance}
                   />
                 </View>
               );
@@ -291,7 +382,6 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   endingRule: {
-    width: 24,
     height: 1,
     marginBottom: Spacing.xs,
   },
