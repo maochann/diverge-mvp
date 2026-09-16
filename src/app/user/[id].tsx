@@ -215,9 +215,10 @@ export default function UserProfileScreen() {
         refreshing={refreshing}
         onRefresh={handleRefresh}
         ListHeaderComponent={
+          <>
           <View style={[styles.headerBlock, { borderBottomColor: colors.border }]}>
             <View style={styles.identity}>
-              <Avatar url={profile.avatar_url} name={profile.display_name} size={72} />
+              <Avatar url={profile.avatar_url} name={profile.display_name} size={64} />
               <View style={styles.names}>
                 <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={2}>
                   {profile.display_name}
@@ -240,6 +241,10 @@ export default function UserProfileScreen() {
               <FollowButton userId={profile.id} />
             </View>
           </View>
+          {posts && posts.length > 0 ? (
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Posts</Text>
+          ) : null}
+          </>
         }
         renderItem={({ item }) => (
           <PostCard
@@ -282,7 +287,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerBlock: {
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.md,
     gap: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
@@ -296,8 +303,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   displayName: Type.title,
-  username: Type.body,
+  username: Type.caption,
   bio: Type.body,
+  sectionLabel: {
+    ...Type.chapter,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.xs,
+  },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
