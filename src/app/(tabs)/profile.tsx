@@ -135,8 +135,7 @@ export default function ProfileScreen() {
             style={({ pressed }) => [styles.followingRow, pressed && styles.pressed]}
           >
             <Text style={[styles.followingLabel, { color: colors.text }]}>
-              Following
-              {sets ? <Text style={{ color: colors.textSecondary }}> · {sets.following.size}</Text> : null}
+              {sets ? `${sets.following.size} following` : 'Following'}
             </Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
           </Pressable>
@@ -212,13 +211,13 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  displayName: Type.title,
+  displayName: Type.display,
   username: Type.caption,
   bio: Type.body,
   sectionLabel: {
     ...Type.chapter,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.xxl,
     paddingBottom: Spacing.xs,
   },
   followingRow: {

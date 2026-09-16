@@ -73,27 +73,42 @@ export const Fonts = {
   serifStrong: 'Newsreader_600SemiBold',
 } as const;
 
-/** Text presets without color; pair with a palette color at the call site. */
+/**
+ * Four steps. Serif only at the top two; everything you read or tap is the
+ * system sans. Sizes are multiples that share a baseline rhythm.
+ */
 export const Type = {
   /** Screen titles and endings. */
-  display: { fontFamily: Fonts.serifStrong, fontSize: 26, lineHeight: 32 },
+  display: { fontFamily: Fonts.serifStrong, fontSize: 28, lineHeight: 34 },
   /** Chapter markers, section names. */
-  chapter: { fontFamily: Fonts.serif, fontSize: 19, lineHeight: 24 },
-  title: { fontFamily: Fonts.serifStrong, fontSize: 24, lineHeight: 30 },
+  chapter: { fontFamily: Fonts.serif, fontSize: 20, lineHeight: 26 },
+  /** Kept for navigation headers; same family as display, a step smaller. */
+  title: { fontFamily: Fonts.serifStrong, fontSize: 22, lineHeight: 28 },
   heading: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
   body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
   bodyStrong: { fontSize: 16, lineHeight: 24, fontWeight: '600' },
+  /** Author names: a half step under body so the text stays the subject. */
+  name: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
   caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
   captionStrong: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
-  micro: { fontSize: 11, lineHeight: 14, fontWeight: '500' },
-  button: { fontSize: 16, lineHeight: 20, fontWeight: '600' },
+  micro: { fontSize: 12, lineHeight: 14, fontWeight: '500' },
+  button: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
 } as const;
 
+/** Two radii: 8 for controls and thumbnails, 10 for post images and sheets. */
 export const Radius = {
-  sm: 4,
+  sm: 8,
   md: 8,
   lg: 10,
   full: 9999,
+} as const;
+
+/** One motion vocabulary for the whole app. */
+export const Motion = {
+  fast: 150,
+  base: 200,
+  slow: 400,
+  spring: { damping: 14, stiffness: 180, mass: 1 },
 } as const;
 
 /** Post images keep their own ratio, clamped to this range (tall 4:5 … wide 1.91:1). */

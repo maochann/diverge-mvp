@@ -77,7 +77,7 @@ export default function ExplorePersonSheet() {
 
   return (
     <ScrollView
-      style={[styles.sheet, { backgroundColor: colors.background }]}
+      style={[styles.sheet, { backgroundColor: colors.surfaceElevated }]}
       contentContainerStyle={styles.container}
     >
       {post ? (

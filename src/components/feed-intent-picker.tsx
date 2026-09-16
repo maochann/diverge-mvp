@@ -17,7 +17,6 @@ interface FeedIntentPickerProps {
  */
 export function FeedIntentPicker({ value, onChange }: FeedIntentPickerProps) {
   const { colors } = useTheme();
-  const selected = FEED_INTENTS.find((o) => o.key === value) ?? FEED_INTENTS[0];
 
   return (
     <View style={styles.container}>
@@ -30,6 +29,7 @@ export function FeedIntentPicker({ value, onChange }: FeedIntentPickerProps) {
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
               accessibilityLabel={option.label}
+              accessibilityHint={option.description}
               onPress={() => onChange(option.key)}
               hitSlop={6}
               style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
@@ -50,9 +50,6 @@ export function FeedIntentPicker({ value, onChange }: FeedIntentPickerProps) {
           );
         })}
       </View>
-      <Text style={[styles.description, { color: colors.textTertiary }]}>
-        {selected.description}
-      </Text>
     </View>
   );
 }
@@ -60,9 +57,8 @@ export function FeedIntentPicker({ value, onChange }: FeedIntentPickerProps) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.md,
-    gap: Spacing.xs,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.sm,
   },
   tabs: {
     flexDirection: 'row',
@@ -84,7 +80,6 @@ const styles = StyleSheet.create({
     height: 10,
     justifyContent: 'flex-end',
   },
-  description: Type.caption,
   pressed: {
     opacity: 0.6,
   },
