@@ -92,6 +92,13 @@ requires a new explicit instruction.
   (`ExploreCanvas`, `explore-layout.ts`, `explore-session.ts`): position and
   node size never encode popularity. Sessions are snapshots; opening a
   person's post is what counts as seen.
+- Motion language (`Motion` in theme.ts): taps sink to 0.98 and spring back
+  (`Tappable`), moves use the one spring, state changes fade with a 2-6pt
+  shift; 150 / 200 / 400ms only; no bounce; everything respects Reduce
+  Motion. Haptics (`decisionHaptic`) only at decisions: follow, publish,
+  open a chapter, open a person. Never on likes or navigation.
+- Photos take one of three frames (4:5, 1:1, 4:3). Missing avatars show
+  `assets/images/default-avatar.png`, never an initial.
 - Tabs stay Feed / Post / Profile, tab bar always visible on tab screens.
   Profile shows identity + Following + posts; everything about managing the
   account lives in Settings.
