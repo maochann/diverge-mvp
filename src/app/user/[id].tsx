@@ -25,7 +25,7 @@ import type { FeedPost, Profile } from '@/types';
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const { isMuted, isBlocked, isPending, toggleMute, block } = useRelations();
   const viewerId = session?.user.id ?? '';
 
@@ -128,7 +128,7 @@ export default function UserProfileScreen() {
           options: [...actions.map((a) => a.label), 'Cancel'],
           destructiveButtonIndex: actions.findIndex((a) => a.destructive),
           cancelButtonIndex: actions.length,
-          userInterfaceStyle: colors.background === '#ffffff' ? 'light' : 'dark',
+          userInterfaceStyle: scheme,
         },
         (index) => actions[index]?.run(),
       );

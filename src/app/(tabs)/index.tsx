@@ -4,7 +4,6 @@ import { Alert, FlatList, StyleSheet } from 'react-native';
 
 import { ChapterDivider } from '@/components/chapter-divider';
 import { ChapterEnd } from '@/components/chapter-end';
-import { ChapterNote } from '@/components/chapter-note';
 import { FeedIntentPicker } from '@/components/feed-intent-picker';
 import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
@@ -63,6 +62,8 @@ interface MixSession extends SessionBase {
   intent: 'mix_it_up';
   followed: { cursor: FeedCursor | null; hasMore: boolean };
   outside: { cursor: ExploreCursor | null; hasMore: boolean };
+  /** Ids of posts that came from outside the reader's circle (for the provenance line). */
+  outsideIds: Set<string>;
 }
 
 type FeedSession = CatchUpSession | ExploreSession | MixSession;
@@ -72,17 +73,26 @@ function sessionHasMore(s: FeedSession): boolean {
 }
 
 type Row =
-  | { kind: 'post'; key: string; post: FeedPost }
-  | { kind: 'divider'; key: string; chapter: number }
-  | { kind: 'note'; key: string; text: string };
+  | { kind: 'post'; key: string; post: FeedPost; outside: boolean }
+  | { kind: 'divider'; key: string; chapter: number; note: string | null };
 
-function toRows(chapters: FeedPost[][], notes: (string | null)[]): Row[] {
+function toRows(
+  chapters: FeedPost[][],
+  notes: (string | null)[],
+  outsideIds: ReadonlySet<string>,
+): Row[] {
   const rows: Row[] = [];
   chapters.forEach((chapter, index) => {
-    if (index > 0) rows.push({ kind: 'divider', key: `chapter-${index + 1}`, chapter: index + 1 });
-    const note = notes[index];
-    if (note) rows.push({ kind: 'note', key: `note-${index + 1}`, text: note });
-    for (const post of chapter) rows.push({ kind: 'post', key: post.id, post });
+    if (chapter.length === 0) return;
+    rows.push({
+      kind: 'divider',
+      key: `chapter-${index + 1}`,
+      chapter: index + 1,
+      note: notes[index] ?? null,
+    });
+    for (const post of chapter) {
+      rows.push({ kind: 'post', key: post.id, post, outside: outsideIds.has(post.id) });
+    }
   });
   return rows;
 }
@@ -201,6 +211,9 @@ export default function FeedScreen() {
               cursor: lastO ? lastO.cursor : null,
               hasMore: outside.hasMore || outside.items.length > mix.usedOutside,
             },
+            outsideIds: new Set(
+              mix.items.filter((i) => i.kind === 'outside').map((i) => i.item.post.id),
+            ),
             othersCount: posts.length === 0 ? await countOtherProfiles(userId) : null,
           });
         }
@@ -370,6 +383,10 @@ export default function FeedScreen() {
                     lastO && lastO.kind === 'outside' ? lastO.item.cursor : s.outside.cursor,
                   hasMore: outside.hasMore || outside.items.length > mix.usedOutside,
                 },
+                outsideIds: new Set([
+                  ...s.outsideIds,
+                  ...usedO.map((i) => (i.kind === 'outside' ? i.item.post.id : '')),
+                ]),
               }
             : s,
         );
@@ -452,8 +469,13 @@ export default function FeedScreen() {
     );
   }
 
-  const rows = toRows(session.chapters, session.notes);
+  const rows = toRows(
+    session.chapters,
+    session.notes,
+    session.intent === 'mix_it_up' ? session.outsideIds : new Set<string>(),
+  );
   const lastChapter = session.chapters[session.chapters.length - 1] ?? [];
+  const lastChapterPeople = new Set(lastChapter.map((p) => p.user_id)).size;
   const isEmpty = rows.length === 0;
   const followingAnyone = (following?.size ?? 0) > 0;
 
@@ -512,9 +534,7 @@ export default function FeedScreen() {
       keyExtractor={(row) => row.key}
       renderItem={({ item }) =>
         item.kind === 'divider' ? (
-          <ChapterDivider chapter={item.chapter} />
-        ) : item.kind === 'note' ? (
-          <ChapterNote text={item.text} />
+          <ChapterDivider chapter={item.chapter} note={item.note} />
         ) : (
           <PostCard
             post={item.post}
@@ -524,6 +544,7 @@ export default function FeedScreen() {
             onOpenAuthor={(uid) => router.push(`/user/${uid}`)}
             onAuthorBlocked={handleAuthorBlocked}
             onDelete={handleDelete}
+            provenance={item.outside ? 'Outside your circle' : null}
           />
         )
       }
@@ -535,7 +556,9 @@ export default function FeedScreen() {
         isEmpty ? null : sessionHasMore(session) ? (
           <ChapterEnd
             variant="chapter-end"
+            chapter={session.chapters.length}
             postCount={lastChapter.length}
+            peopleCount={lastChapterPeople}
             loading={loadingNext}
             error={nextError}
             onNext={handleNextChapter}

@@ -1,16 +1,21 @@
-// Neutral placeholder design tokens — intentionally generic so real branding
-// can replace them later without touching component logic.
+// Diverge design tokens: ink on warm paper with one accent.
 // Colors come in a light and a dark palette; read them through `useTheme()`.
 
 export interface Palette {
+  /** Page background: warm paper. */
   background: string;
+  /** Inputs, sheets, image placeholders. */
   surface: string;
   surfaceElevated: string;
+  /** Used only where a boundary carries meaning (chapters, settings rows). */
   border: string;
   text: string;
   textSecondary: string;
   textTertiary: string;
+  /** The one accent: selection, unseen, links, likes. */
   tint: string;
+  /** Soft wash of the accent for selected surfaces. */
+  tintSoft: string;
   onTint: string;
   danger: string;
   like: string;
@@ -18,33 +23,35 @@ export interface Palette {
 }
 
 export const LightColors: Palette = {
-  background: '#ffffff',
-  surface: '#f4f4f5',
-  surfaceElevated: '#ffffff',
-  border: '#e4e4e7',
-  text: '#18181b',
-  textSecondary: '#71717a',
-  textTertiary: '#a1a1aa',
-  tint: '#2563eb',
-  onTint: '#ffffff',
-  danger: '#dc2626',
-  like: '#e11d48',
-  skeleton: '#e4e4e7',
+  background: '#F6F4EF',
+  surface: '#EFECE5',
+  surfaceElevated: '#FBFAF7',
+  border: '#E3DFD7',
+  text: '#1C1B1A',
+  textSecondary: '#6B6762',
+  textTertiary: '#A19C95',
+  tint: '#3B4BC8',
+  tintSoft: '#E4E6F6',
+  onTint: '#FFFFFF',
+  danger: '#B4453B',
+  like: '#3B4BC8',
+  skeleton: '#E7E3DB',
 };
 
 export const DarkColors: Palette = {
-  background: '#09090b',
-  surface: '#18181b',
-  surfaceElevated: '#1c1c1f',
-  border: '#27272a',
-  text: '#fafafa',
-  textSecondary: '#a1a1aa',
-  textTertiary: '#71717a',
-  tint: '#3b82f6',
-  onTint: '#ffffff',
-  danger: '#f87171',
-  like: '#fb7185',
-  skeleton: '#27272a',
+  background: '#141312',
+  surface: '#1D1C1A',
+  surfaceElevated: '#232120',
+  border: '#2A2826',
+  text: '#F2EFE9',
+  textSecondary: '#A39F98',
+  textTertiary: '#6F6B65',
+  tint: '#8A94E8',
+  tintSoft: '#23264A',
+  onTint: '#141312',
+  danger: '#E07A70',
+  like: '#8A94E8',
+  skeleton: '#2A2826',
 };
 
 export const Spacing = {
@@ -56,21 +63,36 @@ export const Spacing = {
   xxl: 32,
 } as const;
 
+/**
+ * Two families: the system sans for everything you read and tap, and a
+ * serif reserved for the few places that name a structure — screen titles,
+ * chapter markers, endings. Loaded in the root layout.
+ */
+export const Fonts = {
+  serif: 'Newsreader_500Medium',
+  serifStrong: 'Newsreader_600SemiBold',
+} as const;
+
 /** Text presets without color; pair with a palette color at the call site. */
 export const Type = {
-  title: { fontSize: 22, lineHeight: 28, fontWeight: '700' },
+  /** Screen titles and endings. */
+  display: { fontFamily: Fonts.serifStrong, fontSize: 26, lineHeight: 32 },
+  /** Chapter markers, section names. */
+  chapter: { fontFamily: Fonts.serif, fontSize: 19, lineHeight: 24 },
+  title: { fontFamily: Fonts.serifStrong, fontSize: 24, lineHeight: 30 },
   heading: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
-  body: { fontSize: 16, lineHeight: 22, fontWeight: '400' },
-  bodyStrong: { fontSize: 16, lineHeight: 22, fontWeight: '600' },
+  body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
+  bodyStrong: { fontSize: 16, lineHeight: 24, fontWeight: '600' },
   caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
   captionStrong: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
+  micro: { fontSize: 11, lineHeight: 14, fontWeight: '500' },
   button: { fontSize: 16, lineHeight: 20, fontWeight: '600' },
 } as const;
 
 export const Radius = {
-  sm: 6,
-  md: 10,
-  lg: 14,
+  sm: 4,
+  md: 8,
+  lg: 10,
   full: 9999,
 } as const;
 

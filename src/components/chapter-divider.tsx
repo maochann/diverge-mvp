@@ -3,29 +3,33 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/lib/theme';
 
-/** Quiet boundary between chapters once the reader has asked for another. */
-export function ChapterDivider({ chapter }: { chapter: number }) {
+interface ChapterDividerProps {
+  chapter: number;
+  /** Optional one-line note about how this chapter was put together. */
+  note?: string | null;
+}
+
+/**
+ * The start of a chapter: a serif marker with room around it. The first
+ * chapter also uses this, so the feed reads like a book from the top.
+ */
+export function ChapterDivider({ chapter, note }: ChapterDividerProps) {
   const { colors } = useTheme();
   return (
-    <View style={styles.row} accessibilityRole="header">
-      <View style={[styles.line, { backgroundColor: colors.border }]} />
-      <Text style={[styles.label, { color: colors.textTertiary }]}>Chapter {chapter}</Text>
-      <View style={[styles.line, { backgroundColor: colors.border }]} />
+    <View style={styles.block} accessibilityRole="header">
+      <Text style={[styles.label, { color: colors.textSecondary }]}>Chapter {chapter}</Text>
+      {note ? <Text style={[styles.note, { color: colors.textTertiary }]}>{note}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
+  block: {
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.xs,
   },
-  line: {
-    flex: 1,
-    height: StyleSheet.hairlineWidth,
-  },
-  label: Type.caption,
+  label: Type.chapter,
+  note: Type.caption,
 });
