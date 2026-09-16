@@ -94,9 +94,14 @@ export default function SignInScreen() {
             />
           </View>
 
-          <Link href="/sign-up" style={[styles.link, { color: colors.tint }]}>
-            No account? Sign up
-          </Link>
+          <View style={styles.links}>
+            <Link href="/sign-up" style={[styles.link, { color: colors.tint }]}>
+              No account? Sign up
+            </Link>
+            <Link href="/forgot-password" style={[styles.link, { color: colors.textSecondary }]}>
+              Forgot your password?
+            </Link>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -135,6 +140,9 @@ const styles = StyleSheet.create({
   },
   submit: {
     marginTop: Spacing.xs,
+  },
+  links: {
+    gap: Spacing.lg,
   },
   link: {
     ...Type.bodyStrong,

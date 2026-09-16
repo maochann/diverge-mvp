@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
+import { Pressable, StyleSheet } from 'react-native';
 
-import { LogoutButton } from '@/components/logout-button';
 import { Type } from '@/constants/theme';
 import { useTheme } from '@/lib/theme';
 
@@ -47,7 +47,17 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
-          headerRight: () => <LogoutButton />,
+          headerRight: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+              onPress={() => router.push('/settings')}
+              hitSlop={10}
+              style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
+            >
+              <Ionicons name="settings-outline" size={22} color={colors.text} />
+            </Pressable>
+          ),
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
           ),
@@ -56,3 +66,12 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  headerButton: {
+    paddingHorizontal: 12,
+  },
+  pressed: {
+    opacity: 0.6,
+  },
+});
