@@ -34,10 +34,11 @@ export default function TabsLayout() {
   return (
     <Tabs
       // Moving between the three places is a small change of scene: a short
-      // shift, and the system's selection tick under the finger.
+      // fade, and the system's selection tick under the finger. ('shift'
+      // sometimes left the incoming scene invisible, so it stays off.)
       screenListeners={{ tabPress: () => selectionHaptic() }}
       screenOptions={{
-        animation: 'shift',
+        animation: 'fade',
         transitionSpec: {
           animation: 'timing',
           config: { duration: Motion.fast },
