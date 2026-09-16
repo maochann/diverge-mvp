@@ -99,9 +99,10 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const theme = useTheme();
-  // The serif is only used for titles; if it fails to load the system font
-  // stands in, so loading never blocks the app.
-  useFonts({ Newsreader_500Medium, Newsreader_600SemiBold });
+  // Navigation headers capture their title font once, so wait for the serif
+  // (a few ms from the bundle). If it fails, the system font stands in.
+  const [fontsLoaded, fontError] = useFonts({ Newsreader_500Medium, Newsreader_600SemiBold });
+  if (!fontsLoaded && !fontError) return null;
   return (
     <GestureHandlerRootView style={styles.flex}>
       <ThemeProvider value={navigationTheme(theme)}>
