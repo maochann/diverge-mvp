@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSpring,
   withTiming,
@@ -29,6 +30,14 @@ interface PersonNodeProps {
   postedAt: string | null;
   /** Null when they have nothing to show this round (dimmed, not tappable). */
   onPress: (() => void) | null;
+  /**
+   * The reader followed this person during the session: they now belong
+   * inside the circle, so the node settles and stops inviting. They leave
+   * the canvas with the next session.
+   */
+  followed?: boolean;
+  /** Stagger for the settle-in when the canvas first appears. */
+  appearDelay?: number;
 }
 
 /** How far a node can be nudged from its place before it springs back. */
@@ -45,27 +54,52 @@ const DRIFT = 2;
  * The node breathes very slightly and gives a little under the finger, then
  * returns — alive and tactile without ever moving from its place.
  */
-export function PersonNode({ id, author, size, seen, postedAt, onPress }: PersonNodeProps) {
+export function PersonNode({
+  id,
+  author,
+  size,
+  seen,
+  postedAt,
+  onPress,
+  followed = false,
+  appearDelay = 0,
+}: PersonNodeProps) {
   const { colors } = useTheme();
   const reducedMotion = useReducedMotion();
-  const disabled = onPress === null;
+  const disabled = onPress === null || followed;
   const quiet = seen || disabled;
-  const state = disabled ? 'no more posts' : seen ? 'seen' : 'not yet seen';
+  const state = followed
+    ? 'now in your circle'
+    : disabled
+      ? 'no more posts'
+      : seen
+        ? 'seen'
+        : 'not yet seen';
   const when = postedAt ? `, latest post ${timeAgo(postedAt)}` : '';
 
   const driftX = useSharedValue(0);
   const driftY = useSharedValue(0);
   const nudgeX = useSharedValue(0);
   const nudgeY = useSharedValue(0);
-  const scale = useSharedValue(1);
+  const scale = useSharedValue(reducedMotion ? 1 : 0.92);
   const ringOpacity = useSharedValue(quiet ? 0 : 1);
-  const bodyOpacity = useSharedValue(quiet ? 0.55 : 1);
+  const ringScale = useSharedValue(1);
+  const bodyOpacity = useSharedValue(reducedMotion ? (quiet ? 0.55 : 1) : 0);
+
+  // Settle in: each person arrives a beat after the last, from slightly small.
+  useEffect(() => {
+    if (reducedMotion) return;
+    scale.set(withDelay(appearDelay, withSpring(1, Motion.spring)));
+    bodyOpacity.set(withDelay(appearDelay, withTiming(quiet ? 0.55 : 1, { duration: Motion.slow })));
+    // Only on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Idle breathing: each person has their own period and phase from the hash.
   useEffect(() => {
     if (reducedMotion || quiet) {
-      driftX.value = withTiming(0, { duration: Motion.slow });
-      driftY.value = withTiming(0, { duration: Motion.slow });
+      driftX.set(withTiming(0, { duration: Motion.slow }));
+      driftY.set(withTiming(0, { duration: Motion.slow }));
       return;
     }
     const f = fractionFor(id);
@@ -86,11 +120,18 @@ export function PersonNode({ id, author, size, seen, postedAt, onPress }: Person
     );
   }, [id, quiet, reducedMotion, driftX, driftY]);
 
-  // Seen: the ring fades and the node settles back.
+  // Seen: the ring fades and the node settles back. Followed: the ring
+  // draws in first, then fades — the circle closed around them.
   useEffect(() => {
-    ringOpacity.value = withTiming(quiet ? 0 : 1, { duration: Motion.slow });
-    bodyOpacity.value = withTiming(quiet ? 0.55 : 1, { duration: Motion.slow });
-  }, [quiet, ringOpacity, bodyOpacity]);
+    if (followed) {
+      ringScale.set(withTiming(0.6, { duration: Motion.slow, easing: Easing.out(Easing.cubic) }));
+      ringOpacity.set(withDelay(Motion.base, withTiming(0, { duration: Motion.slow })));
+      bodyOpacity.set(withDelay(Motion.base, withTiming(0.4, { duration: Motion.slow })));
+      return;
+    }
+    ringOpacity.set(withTiming(quiet ? 0 : 1, { duration: Motion.slow }));
+    bodyOpacity.set(withTiming(quiet ? 0.55 : 1, { duration: Motion.slow }));
+  }, [quiet, followed, ringOpacity, ringScale, bodyOpacity]);
 
   const open = () => onPress?.();
 
@@ -98,10 +139,10 @@ export function PersonNode({ id, author, size, seen, postedAt, onPress }: Person
     .enabled(!disabled)
     .maxDistance(8)
     .onBegin(() => {
-      scale.value = withTiming(0.96, { duration: Motion.fast });
+      scale.set(withTiming(0.96, { duration: Motion.fast }));
     })
     .onFinalize(() => {
-      scale.value = withSpring(1, Motion.spring);
+      scale.set(withSpring(1, Motion.spring));
     })
     .onEnd(() => {
       runOnJS(open)();
@@ -115,13 +156,13 @@ export function PersonNode({ id, author, size, seen, postedAt, onPress }: Person
       const dy = e.translationY * NUDGE_FOLLOW;
       const d = Math.hypot(dx, dy);
       const k = d > NUDGE_LIMIT ? NUDGE_LIMIT / d : 1;
-      nudgeX.value = dx * k;
-      nudgeY.value = dy * k;
+      nudgeX.set(dx * k);
+      nudgeY.set(dy * k);
     })
     .onFinalize(() => {
-      nudgeX.value = withSpring(0, Motion.spring);
-      nudgeY.value = withSpring(0, Motion.spring);
-      scale.value = withSpring(1, Motion.spring);
+      nudgeX.set(withSpring(0, Motion.spring));
+      nudgeY.set(withSpring(0, Motion.spring));
+      scale.set(withSpring(1, Motion.spring));
     });
 
   const gesture = Gesture.Race(nudge, tap);
@@ -134,7 +175,10 @@ export function PersonNode({ id, author, size, seen, postedAt, onPress }: Person
       { scale: scale.value },
     ],
   }));
-  const ringStyle = useAnimatedStyle(() => ({ opacity: ringOpacity.value }));
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: ringOpacity.value,
+    transform: [{ scale: ringScale.value }],
+  }));
 
   return (
     <GestureDetector gesture={gesture}>
