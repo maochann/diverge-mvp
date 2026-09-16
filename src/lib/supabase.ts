@@ -22,8 +22,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     ...(isServerRender ? {} : { storage: AsyncStorage }),
     autoRefreshToken: !isServerRender,
     persistSession: !isServerRender,
-    // No browser URL to parse sessions from in a native app.
+    // No browser URL to parse sessions from in a native app; deep links are
+    // handled explicitly (see auth-context completeRecovery).
     detectSessionInUrl: false,
+    // PKCE: password-reset links carry a one-time code that only the device
+    // which requested the reset can exchange.
+    flowType: 'pkce',
   },
 });
 

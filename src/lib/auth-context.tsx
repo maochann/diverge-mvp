@@ -27,9 +27,23 @@ interface AuthContextValue {
   ) => Promise<boolean>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  /** Email a password-reset link that opens the app. */
+  requestPasswordReset: (email: string) => Promise<void>;
+  /**
+   * Turn a password-reset deep link into a session. Returns true when the
+   * URL was a recovery link and the session is now live.
+   */
+  completeRecovery: (url: string) => Promise<boolean>;
+  /** True after a recovery link was opened, until a new password is saved. */
+  recovering: boolean;
+  /** Set a new password for the signed-in user (also ends recovery). */
+  updatePassword: (password: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+/** Where password-reset emails send people; must be in Supabase's redirect allowlist. */
+export const RECOVERY_REDIRECT = 'divergemvp://reset-password';
 
 interface LoadedProfile {
   userId: string;
@@ -40,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loaded, setLoaded] = useState<LoadedProfile | null>(null);
   const [initializing, setInitializing] = useState(true);
+  const [recovering, setRecovering] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -131,6 +146,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoaded({ userId, profile: await getProfile(userId) });
   }, [userId]);
 
+  const requestPasswordReset = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: RECOVERY_REDIRECT,
+    });
+    if (error) throw new Error(error.message);
+  }, []);
+
+  const completeRecovery = useCallback(async (url: string) => {
+    if (!url.startsWith(RECOVERY_REDIRECT)) return false;
+    const parsed = new URL(url);
+    const code = parsed.searchParams.get('code');
+    // Implicit-flow links put tokens in the fragment instead of a code.
+    const fragment = new URLSearchParams(parsed.hash.replace(/^#/, ''));
+    const accessToken = fragment.get('access_token');
+    const refreshToken = fragment.get('refresh_token');
+    if (code) {
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      if (error) throw new Error(error.message);
+    } else if (accessToken && refreshToken) {
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (error) throw new Error(error.message);
+    } else {
+      const description = parsed.searchParams.get('error_description');
+      throw new Error(description ?? 'This reset link is no longer valid.');
+    }
+    setRecovering(true);
+    return true;
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw new Error(error.message);
+    setRecovering(false);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -141,6 +194,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         refreshProfile,
+        requestPasswordReset,
+        completeRecovery,
+        recovering,
+        updatePassword,
       }}
     >
       {children}
