@@ -1,3 +1,8 @@
+import {
+  Newsreader_500Medium,
+  Newsreader_600SemiBold,
+  useFonts,
+} from '@expo-google-fonts/newsreader';
 import { useLinkingURL } from 'expo-linking';
 import { Stack, ThemeProvider, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -6,6 +11,7 @@ import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { RelationsProvider } from '@/lib/relations-context';
+import { Type } from '@/constants/theme';
 import { navigationTheme, useTheme } from '@/lib/theme';
 
 function RootNavigator() {
@@ -46,7 +52,7 @@ function RootNavigator() {
     <Stack
       screenOptions={{
         headerTintColor: colors.tint,
-        headerTitleStyle: { color: colors.text },
+        headerTitleStyle: { ...Type.title, fontSize: 20, color: colors.text },
         headerShadowVisible: false,
         contentStyle: { backgroundColor: colors.background },
       }}
@@ -82,6 +88,9 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const theme = useTheme();
+  // The serif is only used for titles; if it fails to load the system font
+  // stands in, so loading never blocks the app.
+  useFonts({ Newsreader_500Medium, Newsreader_600SemiBold });
   return (
     <ThemeProvider value={navigationTheme(theme)}>
       <StatusBar style="auto" />

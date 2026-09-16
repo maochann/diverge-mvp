@@ -1,9 +1,32 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs, router } from 'expo-router';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, View, type ColorValue } from 'react-native';
 
+import { ForkLine } from '@/components/fork-line';
 import { Type } from '@/constants/theme';
 import { useTheme } from '@/lib/theme';
+
+type IconName = keyof typeof Ionicons.glyphMap;
+
+/** Outline icon with the fork mark underneath when selected. */
+function TabIcon({
+  name,
+  color,
+  focused,
+}: {
+  name: IconName;
+  color: ColorValue;
+  focused: boolean;
+}) {
+  return (
+    <View style={styles.tabIcon}>
+      <Ionicons name={name} size={22} color={color} />
+      <View style={styles.tabMark}>
+        {focused ? <ForkLine width={20} color={String(color)} /> : null}
+      </View>
+    </View>
+  );
+}
 
 export default function TabsLayout() {
   const { colors } = useTheme();
@@ -13,9 +36,10 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.tint,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
         headerStyle: { backgroundColor: colors.background },
-        headerTitleStyle: { ...Type.heading, color: colors.text },
+        headerTitleStyle: { ...Type.title, fontSize: 22, color: colors.text },
+        headerTitleAlign: 'left',
         headerShadowVisible: false,
         headerTintColor: colors.text,
         sceneStyle: { backgroundColor: colors.background },
@@ -25,21 +49,18 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Feed',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="book-outline" color={color} focused={focused} />
           ),
         }}
       />
       <Tabs.Screen
         name="create"
         options={{
-          title: 'New post',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? 'add-circle' : 'add-circle-outline'}
-              size={size + 2}
-              color={color}
-            />
+          title: 'Post',
+          headerTitle: 'New post',
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="create-outline" color={color} focused={focused} />
           ),
         }}
       />
@@ -58,8 +79,8 @@ export default function TabsLayout() {
               <Ionicons name="settings-outline" size={22} color={colors.text} />
             </Pressable>
           ),
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="person-outline" color={color} focused={focused} />
           ),
         }}
       />
@@ -68,6 +89,14 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabIcon: {
+    alignItems: 'center',
+  },
+  tabMark: {
+    height: 8,
+    marginTop: 1,
+    justifyContent: 'flex-end',
+  },
   headerButton: {
     paddingHorizontal: 12,
   },

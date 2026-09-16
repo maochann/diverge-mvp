@@ -54,7 +54,7 @@ export function Button({
         compact ? styles.compact : styles.full,
         {
           backgroundColor: background,
-          borderColor: variant === 'outline' ? colors.border : 'transparent',
+          borderColor: variant === 'outline' ? colors.textTertiary : 'transparent',
           opacity: blocked ? 0.5 : pressed ? 0.75 : 1,
         },
         style,
