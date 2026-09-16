@@ -5,8 +5,6 @@ import Animated, {
   useAnimatedProps,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
-  withSequence,
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -38,24 +36,18 @@ interface PullForkProps {
  * session arrives. No spinner — the same mark as everywhere the feed branches.
  */
 export function PullFork({ progress, refreshing, color }: PullForkProps) {
-  const pulse = useSharedValue(1);
+  // When the pull commits, the fork stretches sideways and vanishes: the
+  // branch has been taken. 0 = at rest, 1 = fully stretched and gone.
+  const release = useSharedValue(0);
 
   useEffect(() => {
     if (refreshing) {
-      pulse.set(
-        withRepeat(
-          withSequence(
-            withTiming(0.35, { duration: 500, easing: Easing.inOut(Easing.sin) }),
-            withTiming(1, { duration: 500, easing: Easing.inOut(Easing.sin) }),
-          ),
-          -1,
-          false,
-        ),
-      );
+      release.set(0);
+      release.set(withTiming(1, { duration: Motion.slow, easing: Easing.out(Easing.cubic) }));
     } else {
-      pulse.set(withTiming(1, { duration: Motion.base }));
+      release.set(0);
     }
-  }, [refreshing, pulse]);
+  }, [refreshing, release]);
 
   const pathProps = useAnimatedProps(() => {
     const p = refreshing ? 1 : Math.min(1, Math.max(0, progress.value));
@@ -63,9 +55,15 @@ export function PullFork({ progress, refreshing, color }: PullForkProps) {
   });
   const containerStyle = useAnimatedStyle(() => {
     const p = Math.min(1, Math.max(0, progress.value));
+    if (refreshing) {
+      return {
+        opacity: 1 - release.value,
+        transform: [{ translateY: 0 }, { scaleX: 1 + release.value * 3 }],
+      };
+    }
     return {
-      opacity: refreshing ? pulse.value : p,
-      transform: [{ translateY: (1 - p) * -6 }],
+      opacity: p,
+      transform: [{ translateY: (1 - p) * -6 }, { scaleX: 1 }],
     };
   });
 
