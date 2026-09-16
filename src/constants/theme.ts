@@ -79,17 +79,17 @@ export const Fonts = {
  */
 export const Type = {
   /** Screen titles and endings. */
-  display: { fontFamily: Fonts.serifStrong, fontSize: 28, lineHeight: 34 },
+  display: { fontFamily: Fonts.serifStrong, fontSize: 28, lineHeight: 34, letterSpacing: -0.4 },
   /** Chapter markers, section names. */
-  chapter: { fontFamily: Fonts.serif, fontSize: 20, lineHeight: 26 },
+  chapter: { fontFamily: Fonts.serif, fontSize: 20, lineHeight: 26, letterSpacing: -0.2 },
   /** Kept for navigation headers; same family as display, a step smaller. */
-  title: { fontFamily: Fonts.serifStrong, fontSize: 22, lineHeight: 28 },
+  title: { fontFamily: Fonts.serifStrong, fontSize: 22, lineHeight: 28, letterSpacing: -0.3 },
   heading: { fontSize: 17, lineHeight: 22, fontWeight: '600' },
   body: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
   bodyStrong: { fontSize: 16, lineHeight: 24, fontWeight: '600' },
   /** Author names: a half step under body so the text stays the subject. */
   name: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
-  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400' },
+  caption: { fontSize: 13, lineHeight: 18, fontWeight: '400', letterSpacing: 0.1 },
   captionStrong: { fontSize: 13, lineHeight: 18, fontWeight: '600' },
   micro: { fontSize: 12, lineHeight: 14, fontWeight: '500' },
   button: { fontSize: 15, lineHeight: 20, fontWeight: '600' },
@@ -111,9 +111,10 @@ export const Motion = {
   spring: { damping: 14, stiffness: 180, mass: 1 },
 } as const;
 
-/** Post images keep their own ratio, clamped to this range (tall 4:5 … wide 1.91:1). */
+/** Three photo frames. A picture takes the one closest to its own shape. */
 export const ImageRatio = {
-  min: 0.8,
-  max: 1.91,
+  portrait: 4 / 5,
+  square: 1,
+  landscape: 4 / 3,
   fallback: 4 / 3,
 } as const;

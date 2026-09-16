@@ -10,6 +10,7 @@ import {
 } from 'react';
 
 import { useAuth } from '@/lib/auth-context';
+import { decisionHaptic } from '@/lib/haptics';
 import {
   addRelation,
   blockUser,
@@ -177,6 +178,8 @@ export function RelationsProvider({ children }: { children: ReactNode }) {
       try {
         if (was) await removeRelation(kind, userId, target);
         else await addRelation(kind, userId, target);
+        // Choosing to follow someone is a decision; unfollowing is quiet.
+        if (kind === 'follow' && !was) decisionHaptic();
       } catch (e) {
         patch(key, target, was);
         throw e;

@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, StyleSheet } from 'react-native';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 
 import { ChapterDivider } from '@/components/chapter-divider';
 import { ChapterEnd } from '@/components/chapter-end';
@@ -10,6 +11,7 @@ import { PostCard } from '@/components/post-card';
 import { PostSkeletonList } from '@/components/post-skeleton';
 import { ExploreCanvas } from '@/components/explore-canvas';
 import { CHAPTER_SIZE, type FeedIntent } from '@/constants/feed';
+import { Motion } from '@/constants/theme';
 import {
   markSeen,
   nextRound,
@@ -18,6 +20,7 @@ import {
   type ExploreSession,
 } from '@/lib/explore-session';
 import { useFeedIntent } from '@/lib/feed-intent';
+import { decisionHaptic } from '@/lib/haptics';
 import { composeMixChapter } from '@/lib/feed-mix';
 import { useAuth } from '@/lib/auth-context';
 import { useRelations } from '@/lib/relations-context';
@@ -80,13 +83,23 @@ function sessionHasMore(s: CatchUpSession | MixSession): boolean {
 }
 
 type Row =
-  | { kind: 'post'; key: string; post: FeedPost; outside: boolean }
+  | {
+      kind: 'post';
+      key: string;
+      post: FeedPost;
+      outside: boolean;
+      /** Part of the chapter the reader just opened (animates in). */
+      fresh: boolean;
+      /** Row index where this post's chapter starts, for the stagger. */
+      chapterStart: number;
+    }
   | { kind: 'divider'; key: string; chapter: number; note: string | null };
 
 function toRows(
   chapters: FeedPost[][],
   notes: (string | null)[],
   outsideIds: ReadonlySet<string>,
+  freshChapter: number | null,
 ): Row[] {
   const rows: Row[] = [];
   chapters.forEach((chapter, index) => {
@@ -97,8 +110,16 @@ function toRows(
       chapter: index + 1,
       note: notes[index] ?? null,
     });
+    const chapterStart = rows.length;
     for (const post of chapter) {
-      rows.push({ kind: 'post', key: post.id, post, outside: outsideIds.has(post.id) });
+      rows.push({
+        kind: 'post',
+        key: post.id,
+        post,
+        outside: outsideIds.has(post.id),
+        fresh: index + 1 === freshChapter,
+        chapterStart,
+      });
     }
   });
   return rows;
@@ -147,6 +168,10 @@ export default function FeedScreen() {
   const [nextError, setNextError] = useState<string | null>(null);
   const [loadingNext, setLoadingNext] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // The chapter number the reader most recently opened; it animates in.
+  const [freshChapter, setFreshChapter] = useState<number | null>(null);
+  // Bumps whenever a new session starts so the content can cross-fade.
+  const [sessionKey, setSessionKey] = useState(0);
   // Latest values for callbacks that must not re-subscribe on every change
   // (the focus effect in particular).
   const sessionRef = useRef<FeedSession | null>(null);
@@ -166,6 +191,8 @@ export default function FeedScreen() {
       starting.current = true;
       try {
         setInitialError(null);
+        setFreshChapter(null);
+        setSessionKey((k) => k + 1);
         const cutoff = new Date().toISOString();
         const authorIds = [...(ids ?? [])];
 
@@ -311,6 +338,8 @@ export default function FeedScreen() {
     }
     setLoadingNext(true);
     setNextError(null);
+    decisionHaptic();
+    setFreshChapter(current.chapters.length + 1);
     try {
       // Belt and braces: the cursors already guarantee no repeats within a
       // pool, and this also covers a post moving pools after a follow change.
@@ -463,6 +492,7 @@ export default function FeedScreen() {
     const post = person ? postForRound(person, current.round) : null;
     if (!post) return;
     setSession(markSeen(current, personId));
+    decisionHaptic();
     router.push(`/explore/person/${personId}?postId=${post.id}`);
   };
 
@@ -533,13 +563,19 @@ export default function FeedScreen() {
     return (
       <>
         <FeedIntentPicker value={intent} onChange={handleIntentChange} />
-        <ExploreCanvas
-          session={session}
-          me={profile}
-          insideIds={[...(sets?.following ?? [])]}
-          onOpenPerson={handleOpenPerson}
-          onNextRound={handleNextRound}
-        />
+        <Animated.View
+          key={sessionKey}
+          entering={FadeIn.duration(Motion.base)}
+          style={styles.list}
+        >
+          <ExploreCanvas
+            session={session}
+            me={profile}
+            insideIds={[...(sets?.following ?? [])]}
+            onOpenPerson={handleOpenPerson}
+            onNextRound={handleNextRound}
+          />
+        </Animated.View>
       </>
     );
   }
@@ -548,6 +584,7 @@ export default function FeedScreen() {
     session.chapters,
     session.notes,
     session.intent === 'mix_it_up' ? session.outsideIds : new Set<string>(),
+    freshChapter,
   );
   const lastChapter = session.chapters[session.chapters.length - 1] ?? [];
   const lastChapterPeople = new Set(lastChapter.map((p) => p.user_id)).size;
@@ -603,13 +640,39 @@ export default function FeedScreen() {
   })();
 
   return (
+    <Animated.View
+      key={sessionKey}
+      entering={FadeInUp.duration(Motion.base).withInitialValues({ transform: [{ translateY: 4 }] })}
+      style={styles.list}
+    >
     <FlatList
       style={[styles.list, { backgroundColor: colors.background }]}
       data={rows}
       keyExtractor={(row) => row.key}
-      renderItem={({ item }) =>
+      renderItem={({ item, index }) =>
         item.kind === 'divider' ? (
-          <ChapterDivider chapter={item.chapter} note={item.note} />
+          <ChapterDivider
+            chapter={item.chapter}
+            note={item.note}
+            fresh={item.chapter === freshChapter}
+          />
+        ) : item.fresh ? (
+          <Animated.View
+            entering={FadeInUp.duration(Motion.slow)
+              .delay(Math.min(index - item.chapterStart, 6) * 40)
+              .withInitialValues({ transform: [{ translateY: 6 }] })}
+          >
+            <PostCard
+              post={item.post}
+              isOwn={item.post.user_id === userId}
+              onToggleLike={handleToggleLike}
+              onOpenComments={(p) => router.push(`/post/${p.id}`)}
+              onOpenAuthor={(uid) => router.push(`/user/${uid}`)}
+              onAuthorBlocked={handleAuthorBlocked}
+              onDelete={handleDelete}
+              origin={item.outside ? 'beyond' : 'circle'}
+            />
+          </Animated.View>
         ) : (
           <PostCard
             post={item.post}
@@ -644,6 +707,7 @@ export default function FeedScreen() {
       }
       contentContainerStyle={isEmpty ? styles.emptyGrow : undefined}
     />
+    </Animated.View>
   );
 }
 

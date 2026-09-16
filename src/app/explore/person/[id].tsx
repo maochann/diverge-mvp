@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    paddingTop: Spacing.sm,
+    paddingTop: Spacing.lg,
     paddingBottom: Spacing.xxl,
   },
   personRow: {

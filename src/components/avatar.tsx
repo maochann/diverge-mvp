@@ -1,8 +1,10 @@
 import { Image } from 'expo-image';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 
-import { Radius } from '@/constants/theme';
+import { Motion, Radius } from '@/constants/theme';
 import { useTheme } from '@/lib/theme';
+
+const DEFAULT_AVATAR = require('@/assets/images/default-avatar.png');
 
 interface AvatarProps {
   url: string | null;
@@ -10,37 +12,24 @@ interface AvatarProps {
   size?: number;
 }
 
-/** Profile image, or the first letter of the name as a neutral fallback. */
+/** Profile image, or the quiet default silhouette when none is set. */
 export function Avatar({ url, name, size = 40 }: AvatarProps) {
   const { colors } = useTheme();
   const shape = { width: size, height: size, borderRadius: Radius.full };
-  if (url) {
-    return (
-      <Image
-        source={{ uri: url }}
-        style={[shape, { backgroundColor: colors.surface }]}
-        contentFit="cover"
-        transition={150}
-      />
-    );
-  }
   return (
-    <View style={[styles.fallback, shape, { backgroundColor: colors.surface }]}>
-      <Text
-        style={[styles.initial, { fontSize: size * 0.42, color: colors.textSecondary }]}
-      >
-        {(name.trim()[0] ?? '?').toUpperCase()}
-      </Text>
-    </View>
+    <Image
+      source={url ? { uri: url } : DEFAULT_AVATAR}
+      style={[styles.image, shape, { backgroundColor: colors.surface }]}
+      contentFit="cover"
+      transition={{ duration: Motion.base, effect: 'cross-dissolve' }}
+      accessibilityLabel={`${name}'s profile image`}
+      accessibilityIgnoresInvertColors
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  fallback: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initial: {
-    fontWeight: '600',
+  image: {
+    overflow: 'hidden',
   },
 });
