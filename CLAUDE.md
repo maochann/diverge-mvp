@@ -78,6 +78,24 @@ requires a new explicit instruction.
   (`delete-account` Edge Function, from Edit profile), public Terms / Privacy pages
   (`src/constants/legal.ts`).
 
+## Visual system (2026-09-16)
+
+- Paper and ink with one accent (`src/constants/theme.ts`): warm off-white /
+  charcoal / muted ultramarine, with a dark palette. No gradients, blur,
+  glass, neon or cards. Hairlines only where a boundary means something.
+- Type: system sans for reading and controls; Newsreader (serif) only for
+  screen titles, chapter markers, endings and profile names (`Type.display`,
+  `Type.chapter`, `Type.title`).
+- The fork (`ForkLine`) is the only motif and appears only where the feed
+  actually branches: selected intent, selected tab, end of chapter.
+- Catch up / Mix are linear "paragraph" feeds; Explore is a spatial canvas
+  (`ExploreCanvas`, `explore-layout.ts`, `explore-session.ts`): position and
+  node size never encode popularity. Sessions are snapshots; opening a
+  person's post is what counts as seen.
+- Tabs stay Feed / Post / Profile, tab bar always visible on tab screens.
+  Profile shows identity + Following + posts; everything about managing the
+  account lives in Settings.
+
 ## Stack
 
 Expo SDK 57 / React Native 0.86 / TypeScript (strict) / Expo Router (routes in
