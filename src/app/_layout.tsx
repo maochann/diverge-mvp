@@ -69,6 +69,15 @@ function RootNavigator() {
           name="report"
           options={{ title: 'Report', presentation: 'modal' }}
         />
+        <Stack.Screen
+          name="explore/person/[id]"
+          options={{
+            presentation: 'formSheet',
+            sheetAllowedDetents: [0.62, 1],
+            sheetGrabberVisible: true,
+            headerShown: false,
+          }}
+        />
         <Stack.Screen name="settings" options={{ title: 'Settings', headerBackTitle: 'Back' }} />
         <Stack.Screen
           name="change-password"
