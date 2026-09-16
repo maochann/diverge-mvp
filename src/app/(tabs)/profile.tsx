@@ -124,33 +124,21 @@ export default function ProfileScreen() {
             <Text style={[styles.bio, { color: colors.text }]}>{profile.bio}</Text>
           ) : null}
 
-          {/* Only your own lists are ever shown; nobody has a follower count. */}
-          <View style={styles.listRows}>
-            {(
-              [
-                ['following', 'Following', sets?.following.size],
-                ['muted', 'Muted', sets?.muted.size],
-                ['blocked', 'Blocked', sets?.blocked.size],
-              ] as const
-            ).map(([list, label, count]) => (
-              <Pressable
-                key={list}
-                accessibilityRole="button"
-                accessibilityLabel={label}
-                onPress={() => router.push(`/people/${list}`)}
-                hitSlop={4}
-                style={({ pressed }) => [styles.followingRow, pressed && styles.pressed]}
-              >
-                <Text style={[styles.followingLabel, { color: colors.text }]}>
-                  {label}
-                  {count !== undefined ? (
-                    <Text style={{ color: colors.textSecondary }}> · {count}</Text>
-                  ) : null}
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
-              </Pressable>
-            ))}
-          </View>
+          {/* Only your own following is ever shown; nobody has a follower count.
+              Muted and Blocked are management, so they live in Settings. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="People you follow"
+            onPress={() => router.push('/people/following')}
+            hitSlop={4}
+            style={({ pressed }) => [styles.followingRow, pressed && styles.pressed]}
+          >
+            <Text style={[styles.followingLabel, { color: colors.text }]}>
+              Following
+              {sets ? <Text style={{ color: colors.textSecondary }}> · {sets.following.size}</Text> : null}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+          </Pressable>
 
           <View style={styles.metaRow}>
             <Text style={[styles.count, { color: colors.textSecondary }]}>{countLabel}</Text>
@@ -220,11 +208,6 @@ const styles = StyleSheet.create({
   displayName: Type.title,
   username: Type.body,
   bio: Type.body,
-  listRows: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.lg,
-  },
   followingRow: {
     flexDirection: 'row',
     alignItems: 'center',

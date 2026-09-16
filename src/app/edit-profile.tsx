@@ -3,23 +3,19 @@ import { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  View,
 } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
-import { LEGAL_URLS } from '@/constants/legal';
 import { TextField } from '@/components/text-field';
 import { Spacing, Type } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
-import { deleteMyAccount } from '@/services/relations';
 import { useTheme } from '@/lib/theme';
 import { updateProfile } from '@/services/profiles';
 import { pickImage, uploadImage, type PickedImage } from '@/services/storage';
@@ -28,7 +24,7 @@ const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 const BIO_MAX = 160;
 
 export default function EditProfileScreen() {
-  const { session, profile, refreshProfile, signOut } = useAuth();
+  const { session, profile, refreshProfile } = useAuth();
   const { colors } = useTheme();
   const [username, setUsername] = useState(profile?.username ?? '');
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
@@ -75,43 +71,6 @@ export default function EditProfileScreen() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const [deleting, setDeleting] = useState(false);
-
-  /** Two confirmations: this cannot be undone and takes everything with it. */
-  const confirmDeleteAccount = () => {
-    Alert.alert(
-      'Delete your account?',
-      'Your profile, posts, comments, likes and photos will be permanently deleted. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue',
-          style: 'destructive',
-          onPress: () =>
-            Alert.alert('Are you sure?', 'This is permanent.', [
-              { text: 'Keep my account', style: 'cancel' },
-              {
-                text: 'Delete everything',
-                style: 'destructive',
-                onPress: async () => {
-                  setDeleting(true);
-                  try {
-                    await deleteMyAccount();
-                    // The user no longer exists; clear the local session.
-                    await signOut().catch(() => undefined);
-                  } catch (e) {
-                    Alert.alert('Could not delete account', errorMessage(e));
-                  } finally {
-                    setDeleting(false);
-                  }
-                },
-              },
-            ]),
-        },
-      ],
-    );
   };
 
   return (
@@ -169,28 +128,6 @@ export default function EditProfileScreen() {
         />
         <Button title="Cancel" variant="secondary" onPress={() => router.back()} />
 
-        <View style={[styles.dangerZone, { borderTopColor: colors.border }]}>
-          <Text style={[styles.legal, { color: colors.textTertiary }]}>
-            <Text style={{ color: colors.tint }} onPress={() => void Linking.openURL(LEGAL_URLS.terms)}>
-              Terms of Use
-            </Text>
-            {'  ·  '}
-            <Text style={{ color: colors.tint }} onPress={() => void Linking.openURL(LEGAL_URLS.privacy)}>
-              Privacy Policy
-            </Text>
-          </Text>
-          <Button
-            title="Delete account"
-            variant="outline"
-            compact
-            loading={deleting}
-            onPress={confirmDeleteAccount}
-            style={styles.deleteButton}
-          />
-          <Text style={[styles.deleteHint, { color: colors.textTertiary }]}>
-            Permanently removes your account, posts, comments and photos.
-          </Text>
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -199,24 +136,6 @@ export default function EditProfileScreen() {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
-  },
-  dangerZone: {
-    marginTop: Spacing.xl,
-    paddingTop: Spacing.xl,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  legal: {
-    ...Type.caption,
-    textAlign: 'center',
-  },
-  deleteButton: {
-    alignSelf: 'center',
-  },
-  deleteHint: {
-    ...Type.caption,
-    textAlign: 'center',
   },
   container: {
     padding: Spacing.lg,
