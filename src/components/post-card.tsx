@@ -52,6 +52,8 @@ export function PostCard({
   const { colors, scheme } = useTheme();
   const { block, isPending } = useRelations();
   const authorTappable = !isOwn && onOpenAuthor !== undefined;
+  // Posts cached before multi-photo shipped may lack the array.
+  const images = post.image_urls ?? [];
 
   const confirmBlock = () => {
     Alert.alert(
@@ -142,9 +144,9 @@ export function PostCard({
 
       <Text style={[styles.content, { color: colors.text }]}>{post.content}</Text>
 
-      {post.image_urls.length > 0 ? (
+      {images.length > 0 ? (
         <View style={styles.images}>
-          <PostImages urls={post.image_urls} />
+          <PostImages urls={images} />
         </View>
       ) : null}
 
