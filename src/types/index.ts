@@ -18,7 +18,10 @@ export interface FeedPost {
   id: string;
   user_id: string;
   content: string;
+  /** First photo, kept for older clients; prefer image_urls. */
   image_url: string | null;
+  /** Up to four photos, in the order the author chose. */
+  image_urls: string[];
   created_at: string;
   author: PostAuthor;
   like_count: number;
