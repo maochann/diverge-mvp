@@ -8,7 +8,15 @@ import { FeedIntentPicker } from '@/components/feed-intent-picker';
 import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
 import { PostSkeletonList } from '@/components/post-skeleton';
+import { ExploreCanvas } from '@/components/explore-canvas';
 import { CHAPTER_SIZE, type FeedIntent } from '@/constants/feed';
+import {
+  markSeen,
+  nextRound,
+  peopleFromItems,
+  postForRound,
+  type ExploreSession,
+} from '@/lib/explore-session';
 import { useFeedIntent } from '@/lib/feed-intent';
 import { composeMixChapter } from '@/lib/feed-mix';
 import { useAuth } from '@/lib/auth-context';
@@ -23,6 +31,7 @@ import {
   fetchPostsByIds,
   setLiked,
   type ExploreCursor,
+  type ExploreItem,
   type FeedCursor,
 } from '@/services/posts';
 import type { FeedPost } from '@/types';
@@ -52,12 +61,6 @@ interface CatchUpSession extends SessionBase {
   hasMore: boolean;
 }
 
-interface ExploreSession extends SessionBase {
-  intent: 'explore';
-  cursor: ExploreCursor | null;
-  hasMore: boolean;
-}
-
 interface MixSession extends SessionBase {
   intent: 'mix_it_up';
   followed: { cursor: FeedCursor | null; hasMore: boolean };
@@ -68,7 +71,11 @@ interface MixSession extends SessionBase {
 
 type FeedSession = CatchUpSession | ExploreSession | MixSession;
 
-function sessionHasMore(s: FeedSession): boolean {
+/** How many posts to pull for an Explore snapshot: ~20 people × a few rounds. */
+const EXPLORE_SNAPSHOT_SIZE = 60;
+const EXPLORE_SNAPSHOT_PAGES = 3;
+
+function sessionHasMore(s: CatchUpSession | MixSession): boolean {
   return s.intent === 'mix_it_up' ? s.followed.hasMore || s.outside.hasMore : s.hasMore;
 }
 
@@ -178,16 +185,29 @@ export default function FeedScreen() {
             othersCount: null,
           });
         } else if (forIntent === 'explore') {
-          const chapter = await fetchExploreChapter(userId, { cutoff, limit: CHAPTER_SIZE });
-          const posts = chapter.items.map((i) => i.post);
+          // Snapshot everyone outside the circle with a few posts each.
+          let effectiveCutoff = cutoff;
+          let after: ExploreCursor | null = null;
+          const items: ExploreItem[] = [];
+          for (let page = 0; page < EXPLORE_SNAPSHOT_PAGES; page++) {
+            const chapter = await fetchExploreChapter(userId, {
+              cutoff: effectiveCutoff,
+              after,
+              limit: EXPLORE_SNAPSHOT_SIZE,
+            });
+            effectiveCutoff = chapter.cutoff;
+            items.push(...chapter.items);
+            after = chapter.nextCursor;
+            if (!chapter.hasMore) break;
+          }
+          const people = peopleFromItems(items);
           setSession({
             intent: 'explore',
-            chapters: [posts],
-            notes: [null],
-            cutoff: chapter.cutoff,
-            cursor: chapter.nextCursor,
-            hasMore: chapter.hasMore,
-            othersCount: posts.length === 0 ? await countOtherProfiles(userId) : null,
+            cutoff: effectiveCutoff,
+            round: 1,
+            people,
+            seen: new Set(),
+            othersCount: people.length === 0 ? await countOtherProfiles(userId) : null,
           });
         } else {
           const [followed, outside] = await Promise.all([
@@ -233,13 +253,15 @@ export default function FeedScreen() {
    */
   const refreshCounts = useCallback(async () => {
     const current = sessionRef.current;
-    if (!current) return;
+    if (!current || current.intent === 'explore') return;
     const ids = current.chapters.flat().map((p) => p.id);
     if (ids.length === 0) return;
     try {
       const fresh = new Map((await fetchPostsByIds(ids, userId)).map((p) => [p.id, p]));
       setSession((s) =>
-        s ? { ...s, chapters: mapPosts(s.chapters, (p) => fresh.get(p.id) ?? null) } : s,
+        s && s.intent !== 'explore'
+          ? { ...s, chapters: mapPosts(s.chapters, (p) => fresh.get(p.id) ?? null) }
+          : s,
       );
     } catch {
       // Counts are best-effort; the chapter itself is still valid.
@@ -284,7 +306,9 @@ export default function FeedScreen() {
 
   const handleNextChapter = async () => {
     const current = session;
-    if (!current || !sessionHasMore(current) || loadingNext) return;
+    if (!current || current.intent === 'explore' || !sessionHasMore(current) || loadingNext) {
+      return;
+    }
     setLoadingNext(true);
     setNextError(null);
     try {
@@ -303,24 +327,6 @@ export default function FeedScreen() {
         const posts = chapter.posts.filter((p) => !seen.has(p.id));
         setSession((s) =>
           s && s.intent === 'catch_up'
-            ? {
-                ...s,
-                chapters: posts.length > 0 ? [...s.chapters, posts] : s.chapters,
-                notes: posts.length > 0 ? [...s.notes, null] : s.notes,
-                cursor: chapter.nextCursor ?? s.cursor,
-                hasMore: chapter.hasMore,
-              }
-            : s,
-        );
-      } else if (current.intent === 'explore') {
-        const chapter = await fetchExploreChapter(userId, {
-          cutoff: current.cutoff,
-          after: current.cursor,
-          limit: CHAPTER_SIZE,
-        });
-        const posts = chapter.items.map((i) => i.post).filter((p) => !seen.has(p.id));
-        setSession((s) =>
-          s && s.intent === 'explore'
             ? {
                 ...s,
                 chapters: posts.length > 0 ? [...s.chapters, posts] : s.chapters,
@@ -407,13 +413,17 @@ export default function FeedScreen() {
     };
     // Optimistic update; reverted if the request fails.
     setSession((s) =>
-      s ? { ...s, chapters: mapPosts(s.chapters, (p) => (p.id === post.id ? patched : p)) } : s,
+      s && s.intent !== 'explore'
+        ? { ...s, chapters: mapPosts(s.chapters, (p) => (p.id === post.id ? patched : p)) }
+        : s,
     );
     try {
       await setLiked(post.id, userId, nextLiked);
     } catch (e) {
       setSession((s) =>
-        s ? { ...s, chapters: mapPosts(s.chapters, (p) => (p.id === post.id ? post : p)) } : s,
+        s && s.intent !== 'explore'
+          ? { ...s, chapters: mapPosts(s.chapters, (p) => (p.id === post.id ? post : p)) }
+          : s,
       );
       Alert.alert('Could not update like', errorMessage(e));
     }
@@ -423,7 +433,9 @@ export default function FeedScreen() {
     try {
       await deletePost(post.id);
       setSession((s) =>
-        s ? { ...s, chapters: mapPosts(s.chapters, (p) => (p.id === post.id ? null : p)) } : s,
+        s && s.intent !== 'explore'
+          ? { ...s, chapters: mapPosts(s.chapters, (p) => (p.id === post.id ? null : p)) }
+          : s,
       );
     } catch (e) {
       Alert.alert('Could not delete post', errorMessage(e));
@@ -434,9 +446,28 @@ export default function FeedScreen() {
 
   /** Blocking is a safety action: their posts leave the screen right away. */
   const handleAuthorBlocked = (authorId: string) => {
-    setSession((s) =>
-      s ? { ...s, chapters: mapPosts(s.chapters, (p) => (p.user_id === authorId ? null : p)) } : s,
-    );
+    setSession((s) => {
+      if (!s) return s;
+      if (s.intent === 'explore') {
+        return { ...s, people: s.people.filter((p) => p.id !== authorId) };
+      }
+      return { ...s, chapters: mapPosts(s.chapters, (p) => (p.user_id === authorId ? null : p)) };
+    });
+  };
+
+  /** Opening someone's post is what counts as "seen" — never how long you look. */
+  const handleOpenPerson = (personId: string) => {
+    const current = sessionRef.current;
+    if (!current || current.intent !== 'explore') return;
+    const person = current.people.find((p) => p.id === personId);
+    const post = person ? postForRound(person, current.round) : null;
+    if (!post) return;
+    setSession(markSeen(current, personId));
+    router.push(`/explore/person/${personId}?postId=${post.id}`);
+  };
+
+  const handleNextRound = () => {
+    setSession((s) => (s && s.intent === 'explore' ? nextRound(s) : s));
   };
 
   // Catch up and Mix can't be built without knowing who you follow. Never
@@ -466,6 +497,49 @@ export default function FeedScreen() {
         actionTitle="Retry"
         onAction={() => void startSession(intent)}
       />
+    );
+  }
+
+  if (session.intent === 'explore') {
+    if (session.people.length === 0) {
+      const othersCount = session.othersCount;
+      return (
+        <>
+          <FeedIntentPicker value={intent} onChange={handleIntentChange} />
+          {othersCount === 0 ? (
+            <MessageState
+              icon="newspaper-outline"
+              title="No one else is here yet"
+              detail="When other people join and post, you'll find them here."
+            />
+          ) : othersCount !== null && othersCount <= (following?.size ?? 0) ? (
+            <MessageState
+              icon="checkmark-done-outline"
+              title="You follow everyone here"
+              detail="There's no one outside your circle right now."
+            />
+          ) : (
+            <MessageState
+              icon="newspaper-outline"
+              title="Nobody outside your circle has posted yet"
+              detail="Pull down to check again later."
+              actionTitle="Check again"
+              onAction={() => void handleRefresh()}
+            />
+          )}
+        </>
+      );
+    }
+    return (
+      <>
+        <FeedIntentPicker value={intent} onChange={handleIntentChange} />
+        <ExploreCanvas
+          session={session}
+          followingCount={sets?.following.size ?? 0}
+          onOpenPerson={handleOpenPerson}
+          onNextRound={handleNextRound}
+        />
+      </>
     );
   }
 
@@ -499,7 +573,7 @@ export default function FeedScreen() {
         />
       );
     }
-    // Explore, or a Mix with nothing on either side.
+    // A Mix with nothing on either side.
     if (session.othersCount === 0) {
       return (
         <MessageState
