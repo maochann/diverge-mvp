@@ -1,14 +1,38 @@
-import { Stack, ThemeProvider } from 'expo-router';
+import { useLinkingURL } from 'expo-linking';
+import { Stack, ThemeProvider, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { RelationsProvider } from '@/lib/relations-context';
 import { navigationTheme, useTheme } from '@/lib/theme';
 
 function RootNavigator() {
-  const { session, initializing } = useAuth();
+  const { session, initializing, completeRecovery, recovering } = useAuth();
   const { colors } = useTheme();
+
+  // Password-reset links open the app with a one-time code. Exchange it for
+  // a session, then send the person straight to the new-password screen.
+  const url = useLinkingURL();
+  const handledUrl = useRef<string | null>(null);
+  useEffect(() => {
+    if (!url || url === handledUrl.current) return;
+    handledUrl.current = url;
+    completeRecovery(url)
+      .then((isRecovery) => {
+        if (isRecovery) router.replace('/change-password');
+      })
+      .catch((e: unknown) => {
+        Alert.alert('Reset link problem', e instanceof Error ? e.message : String(e));
+      });
+  }, [url, completeRecovery]);
+
+  // If the session appeared before the navigator was ready, land on the
+  // new-password screen once it is.
+  useEffect(() => {
+    if (recovering && session) router.replace('/change-password');
+  }, [recovering, session]);
 
   if (initializing) {
     return (
@@ -38,6 +62,11 @@ function RootNavigator() {
         <Stack.Screen
           name="report"
           options={{ title: 'Report', presentation: 'modal' }}
+        />
+        <Stack.Screen name="settings" options={{ title: 'Settings', headerBackTitle: 'Back' }} />
+        <Stack.Screen
+          name="change-password"
+          options={{ title: 'Change password', headerBackTitle: 'Back' }}
         />
         <Stack.Screen
           name="edit-profile"
