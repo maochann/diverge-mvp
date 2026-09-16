@@ -121,17 +121,17 @@ function mixNote(followedCount: number, outsideCount: number, followingAnyone: b
   if (followedCount + outsideCount === 0) return null;
   if (followedCount === 0) {
     return followingAnyone
-      ? 'Nobody you follow has posted yet, so this chapter is all from outside your circle.'
-      : "You're not following anyone yet, so this chapter is all from outside your circle.";
+      ? 'Nothing new from your circle. This chapter is all from beyond it.'
+      : 'Nobody in your circle yet. This chapter is all from beyond it.';
   }
   if (outsideCount === 0) {
-    return 'You follow everyone who has posted, so this chapter is all from your circle.';
+    return 'All from your circle this time.';
   }
-  return null;
+  return `${followedCount} from your circle · ${outsideCount} from beyond`;
 }
 
 export default function FeedScreen() {
-  const { session: auth } = useAuth();
+  const { session: auth, profile } = useAuth();
   const { colors } = useTheme();
   const userId = auth?.user.id ?? '';
   const { intent, setIntent, ready: intentReady } = useFeedIntent(userId);
@@ -535,7 +535,8 @@ export default function FeedScreen() {
         <FeedIntentPicker value={intent} onChange={handleIntentChange} />
         <ExploreCanvas
           session={session}
-          followingCount={sets?.following.size ?? 0}
+          me={profile}
+          insideIds={[...(sets?.following ?? [])]}
           onOpenPerson={handleOpenPerson}
           onNextRound={handleNextRound}
         />
@@ -618,7 +619,7 @@ export default function FeedScreen() {
             onOpenAuthor={(uid) => router.push(`/user/${uid}`)}
             onAuthorBlocked={handleAuthorBlocked}
             onDelete={handleDelete}
-            provenance={item.outside ? 'Outside your circle' : null}
+            origin={item.outside ? 'beyond' : 'circle'}
           />
         )
       }

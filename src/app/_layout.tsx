@@ -8,6 +8,7 @@ import { Stack, ThemeProvider, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { RelationsProvider } from '@/lib/relations-context';
@@ -75,6 +76,7 @@ function RootNavigator() {
             presentation: 'formSheet',
             sheetAllowedDetents: [0.62, 1],
             sheetGrabberVisible: true,
+            sheetCornerRadius: 10,
             headerShown: false,
           }}
         />
@@ -101,18 +103,23 @@ export default function RootLayout() {
   // stands in, so loading never blocks the app.
   useFonts({ Newsreader_500Medium, Newsreader_600SemiBold });
   return (
-    <ThemeProvider value={navigationTheme(theme)}>
-      <StatusBar style="auto" />
-      <AuthProvider>
-        <RelationsProvider>
-          <RootNavigator />
-        </RelationsProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={styles.flex}>
+      <ThemeProvider value={navigationTheme(theme)}>
+        <StatusBar style="auto" />
+        <AuthProvider>
+          <RelationsProvider>
+            <RootNavigator />
+          </RelationsProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   center: {
     flex: 1,
     alignItems: 'center',

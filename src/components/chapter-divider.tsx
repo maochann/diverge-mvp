@@ -26,9 +26,9 @@ export function ChapterDivider({ chapter, note }: ChapterDividerProps) {
 const styles = StyleSheet.create({
   block: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.sm,
-    gap: Spacing.xs,
+    paddingTop: Spacing.xxl,
+    paddingBottom: Spacing.xs,
+    gap: 2,
   },
   label: Type.chapter,
   note: Type.caption,

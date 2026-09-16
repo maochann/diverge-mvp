@@ -1,12 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { PersonNode } from '@/components/person-node';
 import { Spacing, Type } from '@/constants/theme';
-import { layoutPeople } from '@/lib/explore-layout';
+import { layoutCanvas } from '@/lib/explore-layout';
 import {
   availableIn,
   hasNextRound,
@@ -17,23 +18,31 @@ import {
 } from '@/lib/explore-session';
 import { timeAgo } from '@/lib/format';
 import { useTheme } from '@/lib/theme';
+import type { Profile } from '@/types';
 
 interface ExploreCanvasProps {
   session: ExploreSession;
-  /** How many people the reader follows (for the footer line). */
-  followingCount: number;
+  /** The reader, drawn at the centre of their circle. */
+  me: Profile | null;
+  /** Ids of the people the reader follows: marks inside the circle. */
+  insideIds: readonly string[];
   onOpenPerson: (personId: string) => void;
   onNextRound: () => void;
 }
 
+const CENTER_SIZE = 28;
+const INSIDE_MARK = 6;
+
 /**
- * Explore as a space rather than a stream. Everyone outside the reader's
- * circle who has posted is placed once; the reader chooses whom to open.
- * Nothing here ranks people — position and size carry no meaning.
+ * Explore as a space rather than a stream. The reader's circle is drawn as
+ * a single hairline; the people they follow sit inside it as small marks,
+ * and everyone else who has posted is placed once, just beyond it. Nothing
+ * here ranks people — position and size carry no meaning.
  */
 export function ExploreCanvas({
   session,
-  followingCount,
+  me,
+  insideIds,
   onOpenPerson,
   onNextRound,
 }: ExploreCanvasProps) {
@@ -46,24 +55,33 @@ export function ExploreCanvas({
     if (width !== box.width || height !== box.height) setBox({ width, height });
   };
 
-  const points = layoutPeople(
+  const layout = layoutCanvas(
     session.people.map((p) => p.id),
+    insideIds,
     box,
   );
   const remaining = unseenCount(session);
   const complete = roundComplete(session);
   const more = hasNextRound(session);
   const available = availableIn(session).length;
+  const insideCount = insideIds.length;
+
+  const insideLine =
+    insideCount === 0
+      ? 'Your circle is empty for now.'
+      : insideCount === 1
+        ? '1 in your circle.'
+        : `${insideCount} in your circle.`;
 
   const footer = complete ? (
     <View style={styles.ending}>
       <Text style={[styles.endingTitle, { color: colors.text }]}>
         {session.round === 1
-          ? "You've met everyone outside your circle."
-          : `That's everyone's post ${session.round}.`}
+          ? 'That’s everyone beyond your circle.'
+          : 'That’s everyone, again.'}
       </Text>
       {more ? (
-        <Button title="See their next posts" variant="outline" compact onPress={onNextRound} />
+        <Button title="One more from each" variant="outline" compact onPress={onNextRound} />
       ) : (
         <Text style={[styles.endingDetail, { color: colors.textSecondary }]}>
           Nothing more from them for now.
@@ -73,18 +91,10 @@ export function ExploreCanvas({
   ) : (
     <View style={styles.status}>
       <Text style={[styles.statusLine, { color: colors.textSecondary }]}>
-        {remaining === 1
-          ? '1 person you haven’t met yet.'
-          : `${remaining} people you haven’t met yet.`}
+        {remaining === 1 ? '1 still to meet.' : `${remaining} still to meet.`}
         {session.round > 1 ? `  ·  Round ${session.round}` : ''}
       </Text>
-      {followingCount > 0 ? (
-        <Text style={[styles.statusLine, { color: colors.textTertiary }]}>
-          {followingCount === 1
-            ? '1 person you follow is inside your circle.'
-            : `${followingCount} people you follow are inside your circle.`}
-        </Text>
-      ) : null}
+      <Text style={[styles.statusLine, { color: colors.textTertiary }]}>{insideLine}</Text>
     </View>
   );
 
@@ -99,7 +109,7 @@ export function ExploreCanvas({
       <Ionicons
         name={asList ? 'scan-outline' : 'list-outline'}
         size={20}
-        color={colors.textSecondary}
+        color={colors.textTertiary}
       />
     </Pressable>
   );
@@ -142,9 +152,6 @@ export function ExploreCanvas({
                     {post ? `Latest post ${timeAgo(post.created_at)}` : 'No more posts'}
                   </Text>
                 </View>
-                {seen && post ? (
-                  <Ionicons name="checkmark" size={16} color={colors.textSecondary} />
-                ) : null}
               </Pressable>
             );
           })}
@@ -154,28 +161,60 @@ export function ExploreCanvas({
     );
   }
 
+  const { center, boundaryRadius } = layout;
+
   return (
     <View style={styles.fill}>
       {toggle}
       <View style={styles.canvas} onLayout={handleLayout}>
         {box.width > 0 ? (
           <>
+            {/* The circle itself: one hairline, no fill, no meaning in radius. */}
+            <Svg
+              width={box.width}
+              height={box.height}
+              style={StyleSheet.absoluteFill}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              <Circle
+                cx={center.x}
+                cy={center.y}
+                r={boundaryRadius}
+                stroke={colors.border}
+                strokeWidth={StyleSheet.hairlineWidth * 2}
+                fill="none"
+              />
+            </Svg>
+
+            {layout.inside.map((mark) => (
+              <View
+                key={mark.id}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={[
+                  styles.insideMark,
+                  {
+                    left: mark.x - INSIDE_MARK / 2,
+                    top: mark.y - INSIDE_MARK / 2,
+                    backgroundColor: colors.textTertiary,
+                  },
+                ]}
+              />
+            ))}
+
             <View
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
               style={[
-                styles.you,
-                {
-                  left: box.width / 2 - 14,
-                  top: box.height / 2 - 14,
-                  borderColor: colors.border,
-                },
+                styles.center,
+                { left: center.x - CENTER_SIZE / 2, top: center.y - CENTER_SIZE / 2 },
               ]}
             >
-              <View style={[styles.youDot, { backgroundColor: colors.text }]} />
-              <Text style={[styles.youLabel, { color: colors.textTertiary }]}>you</Text>
+              <Avatar url={me?.avatar_url ?? null} name={me?.display_name ?? 'You'} size={CENTER_SIZE} />
             </View>
-            {points.map((point) => {
+
+            {layout.outside.map((point) => {
               const person = session.people.find((p) => p.id === point.id);
               if (!person) return null;
               const post = postForRound(person, session.round);
@@ -184,10 +223,11 @@ export function ExploreCanvas({
                   key={person.id}
                   style={[
                     styles.nodeWrap,
-                    { left: point.x - (point.size + 24) / 2, top: point.y - point.size / 2 },
+                    { left: point.x - (point.size + 28) / 2, top: point.y - point.size / 2 },
                   ]}
                 >
                   <PersonNode
+                    id={person.id}
                     author={person.author}
                     size={point.size}
                     seen={session.seen.has(person.id)}
@@ -215,21 +255,19 @@ const styles = StyleSheet.create({
   nodeWrap: {
     position: 'absolute',
   },
-  you: {
+  insideMark: {
     position: 'absolute',
-    width: 28,
-    alignItems: 'center',
-    gap: 2,
+    width: INSIDE_MARK,
+    height: INSIDE_MARK,
+    borderRadius: INSIDE_MARK / 2,
+    opacity: 0.7,
   },
-  youDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  center: {
+    position: 'absolute',
   },
-  youLabel: Type.micro,
   toggle: {
     position: 'absolute',
-    top: Spacing.xs,
+    top: 0,
     right: Spacing.lg,
     zIndex: 1,
     padding: Spacing.xs,
@@ -255,7 +293,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   list: {
-    paddingTop: Spacing.xxl + Spacing.md,
+    paddingTop: Spacing.xxl + Spacing.sm,
     paddingBottom: Spacing.lg,
   },
   listRow: {
@@ -269,10 +307,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 1,
   },
-  listName: Type.bodyStrong,
+  listName: Type.name,
   listMeta: Type.caption,
   quiet: {
-    opacity: 0.5,
+    opacity: 0.55,
   },
   pressed: {
     opacity: 0.7,

@@ -1,15 +1,18 @@
 /**
  * Where people sit on the Explore canvas.
  *
- * Positions are purely for looking: nobody is closer to the centre because
- * they are popular, and nothing about a person is encoded in where they are.
- * Each person gets a stable angle from a hash of their id, so the same
- * person stays in roughly the same place from one session to the next, and
- * people are spread evenly around a ring in that order. More than
- * RING_CAPACITY people spill onto a second ring, again by hash order.
+ * The reader's circle is drawn literally: a boundary around the centre.
+ * People the reader follows sit inside it as small marks; everyone else is
+ * placed just beyond it on a ring (a second ring if there are many).
+ *
+ * Positions are purely for looking: nobody is closer because they are
+ * popular, and nothing about a person is encoded in where they are. Each
+ * person gets a stable angle from a hash of their id, so the same person
+ * stays in roughly the same place from one session to the next, and people
+ * are spread evenly around their ring in that order.
  */
 
-export const RING_CAPACITY = 8;
+export const RING_CAPACITY = 7;
 
 export interface CanvasPoint {
   id: string;
@@ -20,9 +23,23 @@ export interface CanvasPoint {
   size: number;
 }
 
+export interface InsidePoint {
+  id: string;
+  x: number;
+  y: number;
+}
+
 export interface CanvasSize {
   width: number;
   height: number;
+}
+
+export interface CanvasLayout {
+  center: { x: number; y: number };
+  /** Radius of the circle that separates "your circle" from everyone else. */
+  boundaryRadius: number;
+  outside: CanvasPoint[];
+  inside: InsidePoint[];
 }
 
 /** FNV-1a; small, deterministic, good enough to scatter a few ids. */
@@ -40,26 +57,38 @@ export function angleFor(id: string): number {
   return (hashId(id) / 0x100000000) * Math.PI * 2;
 }
 
+/** A stable fraction in [0, 1) for this person, independent of the angle. */
+export function fractionFor(id: string): number {
+  return ((hashId(id) >>> 8) % 1000) / 1000;
+}
+
 export const NODE_SIZE = { 1: 60, 2: 50 } as const;
+const RING_GAP = 44;
+const SECOND_RING_GAP = 48;
+/** Room for a node plus its name label at the edge of the box. */
+const EDGE_MARGIN = 46;
 
 /**
- * Lay out people around the centre of the given box. Returns one point per
- * id, in the same order as the input.
+ * Lay out the canvas. `outsideIds` are people beyond the circle (nodes),
+ * `insideIds` are people the reader follows (small marks inside).
  */
-export function layoutPeople(ids: readonly string[], box: CanvasSize): CanvasPoint[] {
-  if (ids.length === 0) return [];
+export function layoutCanvas(
+  outsideIds: readonly string[],
+  insideIds: readonly string[],
+  box: CanvasSize,
+): CanvasLayout {
   const cx = box.width / 2;
   const cy = box.height / 2;
-  // Leave room for the node itself plus its name label below it.
-  const margin = 44;
-  const maxRadius = Math.min(box.width, box.height) / 2 - margin;
+  const maxRadius = Math.min(box.width, box.height) / 2 - EDGE_MARGIN;
 
-  const byAngle = [...ids].sort((a, b) => angleFor(a) - angleFor(b));
-  const inner = byAngle.slice(0, RING_CAPACITY);
-  const outer = byAngle.slice(RING_CAPACITY);
+  const byAngle = [...outsideIds].sort((a, b) => angleFor(a) - angleFor(b));
+  const ring1 = byAngle.slice(0, RING_CAPACITY);
+  const ring2 = byAngle.slice(RING_CAPACITY);
 
-  const innerRadius = outer.length > 0 ? maxRadius * 0.55 : maxRadius * 0.82;
+  // Work back from the outermost ring so everything fits the box.
   const outerRadius = maxRadius;
+  const ring1Radius = ring2.length > 0 ? outerRadius - SECOND_RING_GAP : outerRadius;
+  const boundaryRadius = Math.max(40, ring1Radius - RING_GAP);
 
   const place = (ring: 1 | 2, members: string[], radius: number): CanvasPoint[] => {
     if (members.length === 0) return [];
@@ -78,7 +107,21 @@ export function layoutPeople(ids: readonly string[], box: CanvasSize): CanvasPoi
     });
   };
 
-  const points = [...place(1, inner, innerRadius), ...place(2, outer, outerRadius)];
-  const byId = new Map(points.map((p) => [p.id, p]));
-  return ids.map((id) => byId.get(id) as CanvasPoint);
+  const placed = [...place(1, ring1, ring1Radius), ...place(2, ring2, outerRadius)];
+  const byId = new Map(placed.map((p) => [p.id, p]));
+
+  // Inside marks: scattered by hash between 40% and 70% of the boundary,
+  // never overlapping the centre avatar.
+  const inside = insideIds.map((id) => {
+    const r = boundaryRadius * (0.4 + fractionFor(id) * 0.3);
+    const angle = angleFor(id);
+    return { id, x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r };
+  });
+
+  return {
+    center: { x: cx, y: cy },
+    boundaryRadius,
+    outside: outsideIds.map((id) => byId.get(id) as CanvasPoint),
+    inside,
+  };
 }

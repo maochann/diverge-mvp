@@ -32,16 +32,21 @@ export function Button({
   const { colors } = useTheme();
   const blocked = disabled || loading;
 
+  // Primary is ink on paper: the accent is kept for selection and links.
   const background =
     variant === 'primary'
-      ? colors.tint
+      ? colors.text
       : variant === 'destructive'
         ? colors.danger
         : variant === 'secondary'
           ? colors.surface
           : 'transparent';
   const textColor =
-    variant === 'primary' || variant === 'destructive' ? colors.onTint : colors.text;
+    variant === 'primary'
+      ? colors.background
+      : variant === 'destructive'
+        ? '#FFFFFF'
+        : colors.text;
 
   return (
     <Pressable
@@ -54,7 +59,7 @@ export function Button({
         compact ? styles.compact : styles.full,
         {
           backgroundColor: background,
-          borderColor: variant === 'outline' ? colors.textTertiary : 'transparent',
+          borderColor: variant === 'outline' ? colors.border : 'transparent',
           opacity: blocked ? 0.5 : pressed ? 0.75 : 1,
         },
         style,
@@ -79,12 +84,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   full: {
-    minHeight: 48,
+    minHeight: 46,
     paddingHorizontal: Spacing.lg,
   },
   compact: {
-    minHeight: 36,
-    paddingHorizontal: Spacing.lg,
+    minHeight: 34,
+    paddingHorizontal: 14,
     alignSelf: 'flex-start',
   },
   label: Type.button,
