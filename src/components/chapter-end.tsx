@@ -1,7 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { Button } from '@/components/button';
+import { ForkLine } from '@/components/fork-line';
 import { Spacing, Type } from '@/constants/theme';
 import { useTheme } from '@/lib/theme';
 
@@ -9,7 +9,9 @@ type ChapterEndProps =
   | {
       /** More posts exist; the reader decides whether to see another chapter. */
       variant: 'chapter-end';
+      chapter: number;
       postCount: number;
+      peopleCount: number;
       loading: boolean;
       error: string | null;
       onNext: () => void;
@@ -20,18 +22,19 @@ type ChapterEndProps =
     };
 
 /**
- * Card at the bottom of the feed. Tall enough that no further post peeks in
- * below it: the feed stops here until the reader chooses otherwise.
+ * The end of a chapter. Tall enough that no further post peeks in below it:
+ * the feed stops here until the reader chooses otherwise. The fork marks
+ * the one place the feed branches.
  */
 export function ChapterEnd(props: ChapterEndProps) {
   const { colors } = useTheme();
   const { height } = useWindowDimensions();
-  const minHeight = Math.round(height * 0.6);
+  const minHeight = Math.round(height * 0.55);
 
   if (props.variant === 'caught-up') {
     return (
-      <View style={[styles.card, { minHeight, borderTopColor: colors.border }]}>
-        <Ionicons name="checkmark-circle-outline" size={36} color={colors.textTertiary} />
+      <View style={[styles.card, { minHeight }]}>
+        <View style={[styles.rule, { backgroundColor: colors.border }]} />
         <Text style={[styles.title, { color: colors.text }]}>You&apos;re caught up</Text>
         <Text style={[styles.detail, { color: colors.textSecondary }]}>
           Nothing new right now.
@@ -43,17 +46,20 @@ export function ChapterEnd(props: ChapterEndProps) {
     );
   }
 
-  const { postCount, loading, error, onNext } = props;
+  const { chapter, postCount, peopleCount, loading, error, onNext } = props;
   return (
-    <View style={[styles.card, { minHeight, borderTopColor: colors.border }]}>
-      <Ionicons name="bookmark-outline" size={36} color={colors.textTertiary} />
-      <Text style={[styles.title, { color: colors.text }]}>End of chapter</Text>
+    <View style={[styles.card, { minHeight }]}>
+      <View style={styles.forkRow}>
+        <View style={[styles.rule, { backgroundColor: colors.border }]} />
+        <ForkLine width={36} color={colors.textTertiary} />
+        <View style={[styles.rule, { backgroundColor: colors.border }]} />
+      </View>
+      <Text style={[styles.title, { color: colors.text }]}>End of chapter {chapter}</Text>
       <Text style={[styles.detail, { color: colors.textSecondary }]}>
-        {postCount} {postCount === 1 ? 'post' : 'posts'}
+        {postCount} {postCount === 1 ? 'post' : 'posts'} · {peopleCount}{' '}
+        {peopleCount === 1 ? 'person' : 'people'}
       </Text>
-      {error ? (
-        <Text style={[styles.error, { color: colors.danger }]}>{error}</Text>
-      ) : null}
+      {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
       <Button
         title={error ? 'Try again' : 'See another chapter'}
         variant="outline"
@@ -73,10 +79,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xxl,
     paddingVertical: Spacing.xxl,
     gap: Spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  forkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    alignSelf: 'stretch',
+    marginBottom: Spacing.lg,
+  },
+  rule: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
   },
   title: {
-    ...Type.heading,
+    ...Type.display,
+    fontSize: 22,
+    lineHeight: 28,
     textAlign: 'center',
     marginTop: Spacing.xs,
   },
