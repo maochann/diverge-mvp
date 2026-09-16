@@ -92,7 +92,7 @@ export default function CreatePostScreen() {
           accessibilityLabel="Post text"
           value={content}
           onChangeText={(t) => setContent(t.slice(0, MAX_LENGTH))}
-          placeholder="What's happening?"
+          placeholder="Write something."
           placeholderTextColor={colors.textTertiary}
           keyboardAppearance={scheme}
           multiline
@@ -148,14 +148,11 @@ export default function CreatePostScreen() {
                   : `Add more · ${images.length}/${MAX_PHOTOS}`}
             </Text>
           </Pressable>
-          <Text
-            style={[
-              styles.counter,
-              { color: nearLimit ? colors.danger : colors.textTertiary },
-            ]}
-          >
-            {content.length}/{MAX_LENGTH}
-          </Text>
+          {nearLimit ? (
+            <Text style={[styles.counter, { color: colors.danger }]}>
+              {MAX_LENGTH - content.length}
+            </Text>
+          ) : null}
         </View>
 
         <Button

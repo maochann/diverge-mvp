@@ -29,8 +29,12 @@ interface PostCardProps {
    * so the screen can drop their posts right away.
    */
   onAuthorBlocked?: (userId: string) => void;
-  /** One quiet line above the author, e.g. "Outside your circle" in Mix. */
-  provenance?: string | null;
+  /**
+   * Where the post comes from, relative to the reader's circle. 'beyond'
+   * shows a small hollow mark before the name (the chapter marker says what
+   * it means once); 'circle' shows nothing.
+   */
+  origin?: 'circle' | 'beyond';
 }
 
 /**
@@ -47,7 +51,7 @@ export function PostCard({
   showCommentButton = true,
   onOpenAuthor,
   onAuthorBlocked,
-  provenance,
+  origin = 'circle',
 }: PostCardProps) {
   const { colors, scheme } = useTheme();
   const { block, isPending } = useRelations();
@@ -117,21 +121,24 @@ export function PostCard({
 
   return (
     <View style={styles.post}>
-      {provenance ? (
-        <Text style={[styles.provenance, { color: colors.tint }]}>{provenance}</Text>
-      ) : null}
-
       <View style={styles.header}>
         <Pressable
           accessibilityRole={authorTappable ? 'button' : undefined}
           accessibilityLabel={
-            authorTappable ? `Open ${post.author.display_name}'s profile` : undefined
+            authorTappable
+              ? `Open ${post.author.display_name}'s profile${
+                  origin === 'beyond' ? ', from beyond your circle' : ''
+                }`
+              : undefined
           }
           onPress={authorTappable ? () => onOpenAuthor(post.user_id) : undefined}
           disabled={!authorTappable}
           hitSlop={4}
           style={({ pressed }) => [styles.author, pressed && authorTappable && styles.pressed]}
         >
+          {origin === 'beyond' ? (
+            <View style={[styles.beyondMark, { borderColor: colors.textTertiary }]} />
+          ) : null}
           <Avatar url={post.author.avatar_url} name={post.author.display_name} size={28} />
           <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={1}>
             {post.author.display_name}
@@ -160,7 +167,7 @@ export function PostCard({
         >
           <Ionicons
             name={post.liked_by_me ? 'heart' : 'heart-outline'}
-            size={18}
+            size={20}
             color={post.liked_by_me ? colors.like : colors.textTertiary}
           />
           <Text
@@ -180,7 +187,7 @@ export function PostCard({
             hitSlop={8}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <Ionicons name="chatbubble-outline" size={17} color={colors.textTertiary} />
+            <Ionicons name="chatbubble-outline" size={20} color={colors.textTertiary} />
             <Text style={[styles.actionCount, { color: colors.textTertiary }]}>
               {post.comment_count}
             </Text>
@@ -195,7 +202,7 @@ export function PostCard({
             hitSlop={12}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <Ionicons name="trash-outline" size={17} color={colors.textTertiary} />
+            <Ionicons name="trash-outline" size={20} color={colors.textTertiary} />
           </Pressable>
         ) : (
           <Pressable
@@ -206,7 +213,7 @@ export function PostCard({
             hitSlop={12}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
           >
-            <Ionicons name="ellipsis-horizontal" size={18} color={colors.textTertiary} />
+            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textTertiary} />
           </Pressable>
         )}
       </View>
@@ -217,13 +224,16 @@ export function PostCard({
 const styles = StyleSheet.create({
   post: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.md,
-    gap: Spacing.sm + 2,
+    gap: Spacing.sm,
   },
-  provenance: {
-    ...Type.caption,
-    marginBottom: -2,
+  beyondMark: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    marginRight: 2,
   },
   header: {
     flexDirection: 'row',
@@ -237,7 +247,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm + 2,
   },
   displayName: {
-    ...Type.bodyStrong,
+    ...Type.name,
     flexShrink: 1,
   },
   time: {
@@ -246,7 +256,7 @@ const styles = StyleSheet.create({
   },
   content: Type.body,
   images: {
-    marginTop: Spacing.xs,
+    marginTop: 2,
   },
   actions: {
     flexDirection: 'row',

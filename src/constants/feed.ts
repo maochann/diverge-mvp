@@ -31,17 +31,17 @@ export const FEED_INTENTS: readonly FeedIntentOption[] = [
   {
     key: 'catch_up',
     label: 'Catch up',
-    description: 'People you follow, newest first.',
+    description: 'The people you follow, newest first.',
   },
   {
     key: 'mix_it_up',
     label: 'Mix it up',
-    description: 'Mostly your circle, with a few voices from outside it.',
+    description: 'Your circle, with a few voices from beyond it.',
   },
   {
     key: 'explore',
     label: 'Explore',
-    description: 'One post from everyone outside your circle, then more.',
+    description: 'Everyone beyond your circle, one post each.',
   },
 ];
 

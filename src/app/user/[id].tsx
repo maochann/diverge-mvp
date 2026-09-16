@@ -302,13 +302,13 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  displayName: Type.title,
+  displayName: Type.display,
   username: Type.caption,
   bio: Type.body,
   sectionLabel: {
     ...Type.chapter,
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.xxl,
     paddingBottom: Spacing.xs,
   },
   metaRow: {
