@@ -20,40 +20,50 @@ import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 import { createPost } from '@/services/posts';
-import { pickImage, uploadImage, type PickedImage } from '@/services/storage';
+import { pickImages, uploadImage, type PickedImage } from '@/services/storage';
 
 const MAX_LENGTH = 500;
+const MAX_PHOTOS = 4;
 
 export default function CreatePostScreen() {
   const { session } = useAuth();
   const { colors, scheme } = useTheme();
   const [content, setContent] = useState('');
-  const [image, setImage] = useState<PickedImage | null>(null);
+  const [images, setImages] = useState<PickedImage[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   const canSubmit = content.trim().length > 0 && !submitting;
   const nearLimit = content.length > MAX_LENGTH - 50;
 
-  const handlePickImage = async () => {
+  const handlePickImages = async () => {
+    const room = MAX_PHOTOS - images.length;
+    if (room <= 0) return;
     try {
-      const picked = await pickImage();
-      if (picked) setImage(picked);
+      const picked = await pickImages(room);
+      if (picked.length > 0) setImages((current) => [...current, ...picked].slice(0, MAX_PHOTOS));
     } catch (e) {
       Alert.alert('Could not open photos', errorMessage(e));
     }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((current) => current.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
     if (!session) return;
     setSubmitting(true);
     try {
-      let imageUrl: string | null = null;
-      if (image) {
-        imageUrl = await uploadImage('post-images', session.user.id, image);
+      const imageUrls: string[] = [];
+      for (const [index, image] of images.entries()) {
+        if (images.length > 1) setUploadProgress(`Uploading photo ${index + 1} of ${images.length}…`);
+        imageUrls.push(await uploadImage('post-images', session.user.id, image));
       }
-      const postId = await createPost(session.user.id, content, imageUrl);
+      setUploadProgress(null);
+      const postId = await createPost(session.user.id, content, imageUrls);
       setContent('');
-      setImage(null);
+      setImages([]);
       // Show the new post itself so the writer sees it landed. Own posts
       // don't appear in Catch up (that's for people you follow), so go via
       // the Feed tab: Back from the post returns to the feed session as it was.
@@ -63,6 +73,7 @@ export default function CreatePostScreen() {
       Alert.alert('Could not publish post', errorMessage(e));
     } finally {
       setSubmitting(false);
+      setUploadProgress(null);
     }
   };
 
@@ -89,36 +100,52 @@ export default function CreatePostScreen() {
           style={[styles.textArea, { color: colors.text }]}
         />
 
-        {image ? (
-          <View>
-            <Image
-              source={{ uri: image.uri }}
-              style={[styles.preview, { backgroundColor: colors.surface }]}
-              contentFit="cover"
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Remove attached image"
-              onPress={() => setImage(null)}
-              hitSlop={8}
-              style={styles.removeButton}
-            >
-              <Ionicons name="close-circle" size={28} color="#ffffff" />
-            </Pressable>
-          </View>
+        {images.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.thumbs}
+          >
+            {images.map((image, index) => (
+              <View key={`${index}-${image.uri}`} style={styles.thumbWrap}>
+                <Image
+                  source={{ uri: image.uri }}
+                  style={[styles.thumb, { backgroundColor: colors.surface }]}
+                  contentFit="cover"
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove photo ${index + 1}`}
+                  onPress={() => removeImage(index)}
+                  hitSlop={8}
+                  style={styles.removeButton}
+                >
+                  <Ionicons name="close-circle" size={24} color="#ffffff" />
+                </Pressable>
+              </View>
+            ))}
+          </ScrollView>
         ) : null}
 
         <View style={[styles.toolbar, { borderTopColor: colors.border }]}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={image ? 'Replace image' : 'Add an image'}
-            onPress={handlePickImage}
+            accessibilityLabel={images.length === 0 ? 'Add photos' : 'Add more photos'}
+            onPress={handlePickImages}
+            disabled={images.length >= MAX_PHOTOS}
             hitSlop={8}
-            style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.tool,
+              (pressed || images.length >= MAX_PHOTOS) && styles.pressed,
+            ]}
           >
-            <Ionicons name="image-outline" size={24} color={colors.tint} />
+            <Ionicons name="images-outline" size={24} color={colors.tint} />
             <Text style={[styles.toolLabel, { color: colors.tint }]}>
-              {image ? 'Replace photo' : 'Add photo'}
+              {images.length === 0
+                ? 'Add photos'
+                : images.length >= MAX_PHOTOS
+                  ? `${MAX_PHOTOS} photos`
+                  : `Add more · ${images.length}/${MAX_PHOTOS}`}
             </Text>
           </Pressable>
           <Text
@@ -132,7 +159,7 @@ export default function CreatePostScreen() {
         </View>
 
         <Button
-          title={submitting ? 'Publishing…' : 'Publish'}
+          title={uploadProgress ?? (submitting ? 'Publishing…' : 'Publish')}
           onPress={handleSubmit}
           disabled={!canSubmit}
           loading={submitting}
@@ -157,15 +184,22 @@ const styles = StyleSheet.create({
     minHeight: 140,
     textAlignVertical: 'top',
   },
-  preview: {
-    width: '100%',
+  thumbs: {
+    gap: Spacing.sm,
+  },
+  thumbWrap: {
+    width: 120,
     aspectRatio: ImageRatio.fallback,
-    borderRadius: Radius.lg,
+  },
+  thumb: {
+    width: '100%',
+    height: '100%',
+    borderRadius: Radius.md,
   },
   removeButton: {
     position: 'absolute',
-    top: Spacing.sm,
-    right: Spacing.sm,
+    top: Spacing.xs,
+    right: Spacing.xs,
     shadowColor: '#000',
     shadowOpacity: 0.4,
     shadowRadius: 4,

@@ -457,3 +457,15 @@ $$;
 -- lives in the `delete-account` Edge Function (supabase/functions), which
 -- removes the user's photos and calls the Auth Admin API; everything else
 -- cascades from auth.users -> profiles.
+
+-- ---------------------------------------------------------------------------
+-- Multiple photos per post (added 2026-09-16, max 4 enforced by the app).
+-- image_url stays as the first photo so older app builds keep working.
+-- ---------------------------------------------------------------------------
+
+alter table public.posts add column if not exists image_urls text[] not null default '{}';
+
+update public.posts set image_urls = array[image_url]
+where image_url is not null and image_urls = '{}';
+
+alter table public.posts add constraint posts_image_count check (cardinality(image_urls) <= 4);

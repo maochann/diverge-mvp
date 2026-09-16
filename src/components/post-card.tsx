@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
-import { PostImage } from '@/components/post-image';
+import { PostImages } from '@/components/post-images';
 import { Spacing, Type } from '@/constants/theme';
 import { timeAgo } from '@/lib/format';
 import { useRelations } from '@/lib/relations-context';
@@ -157,7 +157,7 @@ export function PostCard({
 
       <Text style={[styles.content, { color: colors.text }]}>{post.content}</Text>
 
-      {post.image_url ? <PostImage uri={post.image_url} /> : null}
+      <PostImages urls={post.image_urls} />
 
       <View style={styles.actions}>
         <Pressable
