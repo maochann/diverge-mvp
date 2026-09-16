@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useEffect } from 'react';
 import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/avatar';
 import { PostImages } from '@/components/post-images';
-import { Spacing, Type } from '@/constants/theme';
+import { Motion, Spacing, Type } from '@/constants/theme';
 import { timeAgo } from '@/lib/format';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
@@ -35,6 +37,26 @@ interface PostCardProps {
    * it means once); 'circle' shows nothing.
    */
   origin?: 'circle' | 'beyond';
+}
+
+/** The outline heart stays; the filled one soaks in over it like ink. */
+function LikeHeart({ liked, color, idleColor }: { liked: boolean; color: string; idleColor: string }) {
+  const fill = useSharedValue(liked ? 1 : 0);
+  useEffect(() => {
+    fill.set(withTiming(liked ? 1 : 0, { duration: liked ? Motion.base : Motion.fast }));
+  }, [liked, fill]);
+  const fillStyle = useAnimatedStyle(() => ({
+    opacity: fill.value,
+    transform: [{ scale: 0.9 + 0.1 * fill.value }],
+  }));
+  return (
+    <View style={styles.heart}>
+      <Ionicons name="heart-outline" size={20} color={liked ? color : idleColor} />
+      <Animated.View style={[StyleSheet.absoluteFill, fillStyle]}>
+        <Ionicons name="heart" size={20} color={color} />
+      </Animated.View>
+    </View>
+  );
 }
 
 /**
@@ -165,11 +187,7 @@ export function PostCard({
           hitSlop={8}
           style={({ pressed }) => [styles.action, pressed && styles.pressed]}
         >
-          <Ionicons
-            name={post.liked_by_me ? 'heart' : 'heart-outline'}
-            size={20}
-            color={post.liked_by_me ? colors.like : colors.textTertiary}
-          />
+          <LikeHeart liked={post.liked_by_me} color={colors.like} idleColor={colors.textTertiary} />
           <Text
             style={[
               styles.actionCount,
@@ -277,6 +295,10 @@ const styles = StyleSheet.create({
   actionCount: {
     ...Type.caption,
     fontVariant: ['tabular-nums'],
+  },
+  heart: {
+    width: 20,
+    height: 20,
   },
   spacer: {
     flex: 1,

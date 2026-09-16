@@ -3,7 +3,8 @@ import { Tabs, router } from 'expo-router';
 import { Pressable, StyleSheet, View, type ColorValue } from 'react-native';
 
 import { ForkLine } from '@/components/fork-line';
-import { Type } from '@/constants/theme';
+import { Motion, Type } from '@/constants/theme';
+import { selectionHaptic } from '@/lib/haptics';
 import { useTheme } from '@/lib/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -32,7 +33,15 @@ export default function TabsLayout() {
   const { colors } = useTheme();
   return (
     <Tabs
+      // Moving between the three places is a small change of scene: a short
+      // shift, and the system's selection tick under the finger.
+      screenListeners={{ tabPress: () => selectionHaptic() }}
       screenOptions={{
+        animation: 'shift',
+        transitionSpec: {
+          animation: 'timing',
+          config: { duration: Motion.fast },
+        },
         tabBarActiveTintColor: colors.tint,
         tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border },

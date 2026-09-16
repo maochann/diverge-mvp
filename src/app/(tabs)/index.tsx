@@ -1,7 +1,13 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, StyleSheet } from 'react-native';
-import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
+import { Alert, StyleSheet } from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeInUp,
+  runOnJS,
+  useAnimatedScrollHandler,
+  useSharedValue,
+} from 'react-native-reanimated';
 
 import { ChapterDivider } from '@/components/chapter-divider';
 import { ChapterEnd } from '@/components/chapter-end';
@@ -9,6 +15,7 @@ import { FeedIntentPicker } from '@/components/feed-intent-picker';
 import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
 import { PostSkeletonList } from '@/components/post-skeleton';
+import { PULL_THRESHOLD, PullFork } from '@/components/pull-fork';
 import { ExploreCanvas } from '@/components/explore-canvas';
 import { CHAPTER_SIZE, type FeedIntent } from '@/constants/feed';
 import { Motion } from '@/constants/theme';
@@ -168,6 +175,9 @@ export default function FeedScreen() {
   const [nextError, setNextError] = useState<string | null>(null);
   const [loadingNext, setLoadingNext] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // Pull-to-refresh: how far the list is pulled past its top, 1 = threshold.
+  const pull = useSharedValue(0);
+  const refreshingRef = useRef(false);
   // The chapter number the reader most recently opened; it animates in.
   const [freshChapter, setFreshChapter] = useState<number | null>(null);
   // Bumps whenever a new session starts so the content can cross-fade.
@@ -313,6 +323,8 @@ export default function FeedScreen() {
   );
 
   const handleRefresh = async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
     setRefreshing(true);
     // Who you follow may have changed elsewhere; the new session should know.
     const fresh = await reloadRelations();
@@ -321,7 +333,23 @@ export default function FeedScreen() {
       : null;
     if (intent === 'explore' || ids !== null) await startSession(intent, ids);
     setRefreshing(false);
+    refreshingRef.current = false;
   };
+
+  const startRefresh = () => {
+    void handleRefresh();
+  };
+
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      pull.value = Math.max(0, -event.contentOffset.y) / PULL_THRESHOLD;
+    },
+    onEndDrag: (event) => {
+      if (-event.contentOffset.y >= PULL_THRESHOLD) {
+        runOnJS(startRefresh)();
+      }
+    },
+  });
 
   /** A new intent is a new reading session: back to the top, chapter one. */
   const handleIntentChange = async (next: FeedIntent) => {
@@ -645,9 +673,12 @@ export default function FeedScreen() {
       entering={FadeInUp.duration(Motion.base).withInitialValues({ transform: [{ translateY: 4 }] })}
       style={styles.list}
     >
-    <FlatList
+    <PullFork progress={pull} refreshing={refreshing} color={colors.tint} />
+    <Animated.FlatList
       style={[styles.list, { backgroundColor: colors.background }]}
       data={rows}
+      onScroll={onScroll}
+      scrollEventThrottle={16}
       keyExtractor={(row) => row.key}
       renderItem={({ item, index }) =>
         item.kind === 'divider' ? (
@@ -686,8 +717,6 @@ export default function FeedScreen() {
           />
         )
       }
-      refreshing={refreshing}
-      onRefresh={handleRefresh}
       ListHeaderComponent={<FeedIntentPicker value={intent} onChange={handleIntentChange} />}
       ListEmptyComponent={emptyState}
       ListFooterComponent={

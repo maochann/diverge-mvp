@@ -1,0 +1,109 @@
+import { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+  type SharedValue,
+} from 'react-native-reanimated';
+import Svg, { Path } from 'react-native-svg';
+
+import { Motion } from '@/constants/theme';
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+/** How far the reader pulls before a refresh is committed, in points. */
+export const PULL_THRESHOLD = 72;
+const WIDTH = 36;
+const HEIGHT = 12;
+const SPLIT = WIDTH * 0.45;
+const PATH = `M0 ${HEIGHT - 1} H${SPLIT} L${SPLIT + 7} 1 H${WIDTH}`;
+// Long enough to cover the path; the dash offset does the drawing.
+const LENGTH = 80;
+
+interface PullForkProps {
+  /** 0 at rest, 1 at the threshold, may exceed 1 while over-pulled. */
+  progress: SharedValue<number>;
+  refreshing: boolean;
+  color: string;
+}
+
+/**
+ * The pull-to-refresh indicator: as the reader pulls, the fork draws
+ * itself; once released past the threshold it breathes until the new
+ * session arrives. No spinner — the same mark as everywhere the feed branches.
+ */
+export function PullFork({ progress, refreshing, color }: PullForkProps) {
+  const pulse = useSharedValue(1);
+
+  useEffect(() => {
+    if (refreshing) {
+      pulse.set(
+        withRepeat(
+          withSequence(
+            withTiming(0.35, { duration: 500, easing: Easing.inOut(Easing.sin) }),
+            withTiming(1, { duration: 500, easing: Easing.inOut(Easing.sin) }),
+          ),
+          -1,
+          false,
+        ),
+      );
+    } else {
+      pulse.set(withTiming(1, { duration: Motion.base }));
+    }
+  }, [refreshing, pulse]);
+
+  const pathProps = useAnimatedProps(() => {
+    const p = refreshing ? 1 : Math.min(1, Math.max(0, progress.value));
+    return { strokeDashoffset: LENGTH * (1 - p) };
+  });
+  const containerStyle = useAnimatedStyle(() => {
+    const p = Math.min(1, Math.max(0, progress.value));
+    return {
+      opacity: refreshing ? pulse.value : p,
+      transform: [{ translateY: (1 - p) * -6 }],
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[styles.container, containerStyle]}
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
+      <View style={styles.mark}>
+        <Svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`}>
+          <AnimatedPath
+            d={PATH}
+            stroke={color}
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            fill="none"
+            strokeDasharray={`${LENGTH} ${LENGTH}`}
+            animatedProps={pathProps}
+          />
+        </Svg>
+      </View>
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    top: 8,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  mark: {
+    height: HEIGHT,
+  },
+});
