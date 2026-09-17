@@ -469,3 +469,25 @@ update public.posts set image_urls = array[image_url]
 where image_url is not null and image_urls = '{}';
 
 alter table public.posts add constraint posts_image_count check (cardinality(image_urls) <= 4);
+
+-- ---------------------------------------------------------------------------
+-- Translations (added 2026-09-16). One cached translation per post and
+-- target language, written only by the `translate` Edge Function (service
+-- role). Readable when the post itself is readable, so blocks still hold.
+-- ---------------------------------------------------------------------------
+
+create table public.post_translations (
+  post_id uuid not null references public.posts (id) on delete cascade,
+  lang text not null,
+  text text not null,
+  source_lang text,
+  created_at timestamptz not null default now(),
+  primary key (post_id, lang),
+  constraint post_translations_lang check (lang ~ '^[A-Z]{2}(-[A-Z]{2})?$')
+);
+
+alter table public.post_translations enable row level security;
+
+create policy "Translations follow post visibility" on public.post_translations
+  for select to authenticated
+  using (exists (select 1 from public.posts p where p.id = post_id));

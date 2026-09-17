@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
@@ -11,6 +11,7 @@ import { timeAgo } from '@/lib/format';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
+import { deviceTarget, needsTranslation, translatePost } from '@/services/translations';
 import type { FeedPost } from '@/types';
 
 interface PostCardProps {
@@ -78,6 +79,35 @@ export function PostCard({
   const { colors, scheme } = useTheme();
   const { block, isPending } = useRelations();
   const authorTappable = !isOwn && onOpenAuthor !== undefined;
+
+  // Translation is offered, never applied: one quiet link, and the original
+  // is always one tap away.
+  const target = deviceTarget();
+  const translatable = needsTranslation(post.content, target);
+  const [translation, setTranslation] = useState<string | null>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translating, setTranslating] = useState(false);
+
+  const toggleTranslation = async () => {
+    if (showTranslation) {
+      setShowTranslation(false);
+      return;
+    }
+    if (translation !== null) {
+      setShowTranslation(true);
+      return;
+    }
+    setTranslating(true);
+    try {
+      const result = await translatePost(post.id, target);
+      setTranslation(result.text);
+      setShowTranslation(true);
+    } catch (e) {
+      Alert.alert('Could not translate', errorMessage(e));
+    } finally {
+      setTranslating(false);
+    }
+  };
   // Posts cached before multi-photo shipped may lack the array.
   const images = post.image_urls ?? [];
 
@@ -171,7 +201,23 @@ export function PostCard({
         </Text>
       </View>
 
-      <Text style={[styles.content, { color: colors.text }]}>{post.content}</Text>
+      <Text style={[styles.content, { color: colors.text }]}>
+        {showTranslation && translation !== null ? translation : post.content}
+      </Text>
+      {translatable ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={showTranslation ? 'Show original' : 'See translation'}
+          onPress={() => void toggleTranslation()}
+          disabled={translating}
+          hitSlop={6}
+          style={({ pressed }) => [styles.translateLink, pressed && styles.pressed]}
+        >
+          <Text style={[styles.translateText, { color: colors.tint }]}>
+            {translating ? 'Translating…' : showTranslation ? 'Show original' : 'See translation'}
+          </Text>
+        </Pressable>
+      ) : null}
 
       {images.length > 0 ? (
         <View style={styles.images}>
@@ -277,6 +323,11 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   content: Type.body,
+  translateLink: {
+    alignSelf: 'flex-start',
+    marginTop: -4,
+  },
+  translateText: Type.caption,
   images: {
     marginTop: 2,
   },
