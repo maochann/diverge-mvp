@@ -34,7 +34,9 @@ interface AuthContextValue {
    * URL was a recovery link and the session is now live.
    */
   completeRecovery: (url: string) => Promise<boolean>;
-  /** True after a recovery link was opened, until a new password is saved. */
+  /** Turn the 6-digit code from the reset email into a session. */
+  verifyRecoveryCode: (email: string, code: string) => Promise<void>;
+  /** True after a recovery link or code was accepted, until a new password is saved. */
   recovering: boolean;
   /** Set a new password for the signed-in user (also ends recovery). */
   updatePassword: (password: string) => Promise<void>;
@@ -178,6 +180,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true;
   }, []);
 
+  const verifyRecoveryCode = useCallback(async (email: string, code: string) => {
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: code.trim(),
+      type: 'recovery',
+    });
+    if (error) throw new Error(error.message);
+    setRecovering(true);
+  }, []);
+
   const updatePassword = useCallback(async (password: string) => {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw new Error(error.message);
@@ -196,6 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshProfile,
         requestPasswordReset,
         completeRecovery,
+        verifyRecoveryCode,
         recovering,
         updatePassword,
       }}

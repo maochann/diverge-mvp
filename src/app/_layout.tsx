@@ -93,6 +93,8 @@ function RootNavigator() {
       <Stack.Protected guard={!session}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       </Stack.Protected>
+      {/* Reachable signed in or out: reset links land here. */}
+      <Stack.Screen name="reset-password" options={{ title: 'Reset password', headerShown: false }} />
     </Stack>
   );
 }

@@ -11,9 +11,10 @@ import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
 
 export default function ForgotPasswordScreen() {
-  const { requestPasswordReset } = useAuth();
+  const { requestPasswordReset, verifyRecoveryCode } = useAuth();
   const { colors } = useTheme();
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -24,6 +25,19 @@ export default function ForgotPasswordScreen() {
     try {
       await requestPasswordReset(email);
       setSent(true);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleVerify = async () => {
+    setError(null);
+    setSubmitting(true);
+    try {
+      await verifyRecoveryCode(email, code);
+      // Signed in through the code: the root layout sends us to Change password.
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -42,13 +56,40 @@ export default function ForgotPasswordScreen() {
             <Text style={[styles.title, { color: colors.text }]}>Reset password</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               {sent
-                ? 'If that address has an account, a reset link is on its way. Open it on this phone.'
-                : "We'll email you a link that opens Diverge and lets you choose a new password."}
+                ? `If that address has an account, a 6-digit code is on its way to ${email.trim()}. Enter it below.`
+                : "We'll email you a 6-digit code so you can choose a new password."}
             </Text>
           </View>
 
           {sent ? (
-            <Button title="Back to log in" variant="outline" onPress={() => router.back()} />
+            <View style={styles.form}>
+              <TextField
+                label="Code from the email"
+                value={code}
+                onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
+                keyboardType="number-pad"
+                textContentType="oneTimeCode"
+                autoComplete="one-time-code"
+                placeholder="123456"
+                autoFocus
+              />
+              {error ? (
+                <Text style={[styles.error, { color: colors.danger }]}>{error}</Text>
+              ) : null}
+              <Button
+                title="Continue"
+                onPress={handleVerify}
+                disabled={code.length !== 6 || submitting}
+                loading={submitting}
+              />
+              <Button
+                title="Send a new code"
+                variant="secondary"
+                onPress={handleSubmit}
+                disabled={submitting}
+              />
+              <Button title="Back to log in" variant="outline" onPress={() => router.back()} />
+            </View>
           ) : (
             <View style={styles.form}>
               <TextField
