@@ -8,7 +8,6 @@
     "scheme": "divergemvp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.maochan.diverge-mvp",
       "supportsTablet": false,
       "infoPlist": {
@@ -33,13 +32,22 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#F6F4EF",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 120,
+          "dark": {
+            "backgroundColor": "#141312"
+          }
         }
       ],
       "expo-image",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Diverge uses your photo library only to attach photos you choose to your posts and profile."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
