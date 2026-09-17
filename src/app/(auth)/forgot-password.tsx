@@ -56,8 +56,8 @@ export default function ForgotPasswordScreen() {
             <Text style={[styles.title, { color: colors.text }]}>Reset password</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               {sent
-                ? `If that address has an account, a 6-digit code is on its way to ${email.trim()}. Enter it below.`
-                : "We'll email you a 6-digit code so you can choose a new password."}
+                ? `If that address has an account, a code is on its way to ${email.trim()}. Enter it below.`
+                : "We'll email you a code so you can choose a new password."}
             </Text>
           </View>
 
@@ -66,11 +66,11 @@ export default function ForgotPasswordScreen() {
               <TextField
                 label="Code from the email"
                 value={code}
-                onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 6))}
+                onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 8))}
                 keyboardType="number-pad"
                 textContentType="oneTimeCode"
                 autoComplete="one-time-code"
-                placeholder="123456"
+                placeholder="12345678"
                 autoFocus
               />
               {error ? (
@@ -79,7 +79,7 @@ export default function ForgotPasswordScreen() {
               <Button
                 title="Continue"
                 onPress={handleVerify}
-                disabled={code.length !== 6 || submitting}
+                disabled={code.length < 6 || submitting}
                 loading={submitting}
               />
               <Button
