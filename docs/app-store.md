@@ -119,3 +119,11 @@ Command: `xcrun simctl io booted screenshot <file>.png`.
   usually goes first).
 - In App Store Connect, pick the processed build under the version, fill in
   "What's New" (first release: "First release."), then Submit for Review.
+
+## Status log
+
+- 2026-09-19: Version 1.0 (build 10) submitted for review. App Store name
+  is **Diverge Feed** ("Diverge" was taken). Age rating 13+. App Privacy
+  published. Unlisted App Distribution request submitted the same day.
+  Next: wait for the review email; after approval delete the test
+  accounts (Feed Test, まお2, Riviewer) before inviting real testers.
