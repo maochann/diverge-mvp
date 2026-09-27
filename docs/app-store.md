@@ -127,3 +127,8 @@ Command: `xcrun simctl io booted screenshot <file>.png`.
   published. Unlisted App Distribution request submitted the same day.
   Next: wait for the review email; after approval delete the test
   accounts (Feed Test, まお2, Riviewer) before inviting real testers.
+- 2026-09-25: Unlisted App Distribution approved (App Store Connect shows
+  the unlisted URL under Pricing and Availability).
+- 2026-09-27: Version 1.0 (build 10) approved by App Review; status
+  "Ready for Distribution". Unlisted link:
+  https://apps.apple.com/us/app/diverge-feed/id6809689660
