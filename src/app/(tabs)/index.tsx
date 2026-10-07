@@ -17,7 +17,12 @@ import { PostCard } from '@/components/post-card';
 import { PostSkeletonList } from '@/components/post-skeleton';
 import { PULL_THRESHOLD, PullFork } from '@/components/pull-fork';
 import { ExploreCanvas } from '@/components/explore-canvas';
-import { CHAPTER_SIZE, type FeedIntent } from '@/constants/feed';
+import {
+  CHAPTER_SIZE,
+  MIX_ADJACENT_ENABLED,
+  MIX_OUTSIDE_COUNT,
+  type FeedIntent,
+} from '@/constants/feed';
 import { Motion } from '@/constants/theme';
 import { useT, type Translate } from '@/i18n';
 import {
@@ -29,7 +34,9 @@ import {
 } from '@/lib/explore-session';
 import { useFeedIntent } from '@/lib/feed-intent';
 import { decisionHaptic } from '@/lib/haptics';
-import { composeMixChapter } from '@/lib/feed-mix';
+import { composeMixChapter, mergeOutsidePool, type OutsideSource } from '@/lib/feed-mix';
+import { rankAdjacent } from '@/lib/adjacent';
+import { fetchAdjacentForChapter } from '@/services/adjacent';
 import { useAuth } from '@/lib/auth-context';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
@@ -85,6 +92,55 @@ type FeedSession = CatchUpSession | ExploreSession | MixSession;
 /** How many posts to pull for an Explore snapshot: ~20 people × a few rounds. */
 const EXPLORE_SNAPSHOT_SIZE = 60;
 const EXPLORE_SNAPSHOT_PAGES = 3;
+
+type MixOutside = OutsideSource<FeedPost, ExploreItem>;
+
+function outsidePost(o: MixOutside): FeedPost {
+  return o.source === 'adjacent' ? o.post : o.item.post;
+}
+
+/**
+ * Outside voices for a Mix chapter: posts related (same prompt, same fork
+ * origin, branched from) to the chapter's followed posts come first, then
+ * the people-balanced Explore page. Related posts by anyone followed, muted
+ * or the reader are never candidates. Best effort: on failure the Explore
+ * pool alone is used, exactly as before.
+ */
+async function mixOutsidePool(
+  viewerId: string,
+  followedPosts: FeedPost[],
+  explore: ExploreItem[],
+  cutoff: string,
+  following: ReadonlySet<string>,
+  muted: ReadonlySet<string>,
+  seen: ReadonlySet<string>,
+): Promise<MixOutside[]> {
+  let adjacent: FeedPost[] = [];
+  if (MIX_ADJACENT_ENABLED && followedPosts.length > 0) {
+    try {
+      const raw = await fetchAdjacentForChapter(followedPosts, viewerId, cutoff, following);
+      adjacent = rankAdjacent(raw, {
+        viewerId,
+        subjectId: '',
+        following,
+        muted,
+        limit: MIX_OUTSIDE_COUNT,
+      }).map((c) => c.post);
+    } catch {
+      adjacent = [];
+    }
+  }
+  return mergeOutsidePool(adjacent, explore, seen);
+}
+
+/** The Explore cursor after a Mix chapter: past the last Explore-pool item used. */
+function exploreCursorAfter(used: MixOutside[]): ExploreCursor | null {
+  for (let i = used.length - 1; i >= 0; i--) {
+    const o = used[i];
+    if (o.source === 'explore') return o.item.cursor;
+  }
+  return null;
+}
 
 function sessionHasMore(s: CatchUpSession | MixSession): boolean {
   return s.intent === 'mix_it_up' ? s.followed.hasMore || s.outside.hasMore : s.hasMore;
@@ -191,13 +247,15 @@ export default function FeedScreen() {
   // (the focus effect in particular).
   const sessionRef = useRef<FeedSession | null>(null);
   const followingRef = useRef<ReadonlySet<string> | null>(null);
+  const mutedRef = useRef<ReadonlySet<string>>(new Set());
   const starting = useRef(false);
   useEffect(() => {
     sessionRef.current = session;
   }, [session]);
   useEffect(() => {
     followingRef.current = following;
-  }, [following]);
+    mutedRef.current = sets?.muted ?? new Set();
+  }, [following, sets]);
 
   /** Start (or restart) a session from the newest posts. */
   const startSession = useCallback(
@@ -256,10 +314,20 @@ export default function FeedScreen() {
             fetchFollowedChapter(userId, { authorIds, cutoff, limit: CHAPTER_SIZE }),
             fetchExploreChapter(userId, { cutoff, limit: CHAPTER_SIZE }),
           ]);
-          const mix = composeMixChapter(followed.posts, outside.items);
-          const posts = mix.items.map((i) => (i.kind === 'followed' ? i.item : i.item.post));
+          const pool = await mixOutsidePool(
+            userId,
+            followed.posts,
+            outside.items,
+            outside.cutoff,
+            ids ?? new Set(),
+            mutedRef.current,
+            new Set(),
+          );
+          const mix = composeMixChapter(followed.posts, pool);
+          const posts = mix.items.map((i) => (i.kind === 'followed' ? i.item : outsidePost(i.item)));
+          const usedO = mix.items.flatMap((i) => (i.kind === 'outside' ? [i.item] : []));
+          const exploreUsed = usedO.filter((o) => o.source === 'explore').length;
           const lastF = followed.posts[mix.usedFollowed - 1];
-          const lastO = outside.items[mix.usedOutside - 1];
           setSession({
             intent: 'mix_it_up',
             chapters: [posts],
@@ -270,12 +338,10 @@ export default function FeedScreen() {
               hasMore: followed.hasMore || followed.posts.length > mix.usedFollowed,
             },
             outside: {
-              cursor: lastO ? lastO.cursor : null,
-              hasMore: outside.hasMore || outside.items.length > mix.usedOutside,
+              cursor: exploreCursorAfter(usedO),
+              hasMore: outside.hasMore || outside.items.length > exploreUsed,
             },
-            outsideIds: new Set(
-              mix.items.filter((i) => i.kind === 'outside').map((i) => i.item.post.id),
-            ),
+            outsideIds: new Set(usedO.map((o) => outsidePost(o).id)),
             othersCount: posts.length === 0 ? await countOtherProfiles(userId) : null,
           });
         }
@@ -421,15 +487,23 @@ export default function FeedScreen() {
                 cutoff: current.cutoff,
               }),
         ]);
-        const mix = composeMixChapter(
-          followed.posts.filter((p) => !seen.has(p.id)),
-          outside.items.filter((i) => !seen.has(i.post.id)),
+        const freshFollowed = followed.posts.filter((p) => !seen.has(p.id));
+        const pool = await mixOutsidePool(
+          userId,
+          freshFollowed,
+          outside.items,
+          current.cutoff,
+          followingRef.current ?? new Set(),
+          mutedRef.current,
+          seen,
         );
-        const posts = mix.items.map((i) => (i.kind === 'followed' ? i.item : i.item.post));
-        const usedF = mix.items.filter((i) => i.kind === 'followed');
-        const usedO = mix.items.filter((i) => i.kind === 'outside');
+        const mix = composeMixChapter(freshFollowed, pool);
+        const posts = mix.items.map((i) => (i.kind === 'followed' ? i.item : outsidePost(i.item)));
+        const usedF = mix.items.flatMap((i) => (i.kind === 'followed' ? [i.item] : []));
+        const usedO = mix.items.flatMap((i) => (i.kind === 'outside' ? [i.item] : []));
+        const exploreUsed = usedO.filter((o) => o.source === 'explore').length;
         const lastF = usedF[usedF.length - 1];
-        const lastO = usedO[usedO.length - 1];
+        const nextExploreCursor = exploreCursorAfter(usedO);
         setSession((s) =>
           s && s.intent === 'mix_it_up'
             ? {
@@ -440,21 +514,14 @@ export default function FeedScreen() {
                     ? [...s.notes, mixNote(t, mix.usedFollowed, mix.usedOutside, authorIds.length > 0)]
                     : s.notes,
                 followed: {
-                  cursor:
-                    lastF && lastF.kind === 'followed'
-                      ? { created_at: lastF.item.created_at, id: lastF.item.id }
-                      : s.followed.cursor,
+                  cursor: lastF ? { created_at: lastF.created_at, id: lastF.id } : s.followed.cursor,
                   hasMore: followed.hasMore || followed.posts.length > mix.usedFollowed,
                 },
                 outside: {
-                  cursor:
-                    lastO && lastO.kind === 'outside' ? lastO.item.cursor : s.outside.cursor,
-                  hasMore: outside.hasMore || outside.items.length > mix.usedOutside,
+                  cursor: nextExploreCursor ?? s.outside.cursor,
+                  hasMore: outside.hasMore || outside.items.length > exploreUsed,
                 },
-                outsideIds: new Set([
-                  ...s.outsideIds,
-                  ...usedO.map((i) => (i.kind === 'outside' ? i.item.post.id : '')),
-                ]),
+                outsideIds: new Set([...s.outsideIds, ...usedO.map((o) => outsidePost(o).id)]),
               }
             : s,
         );

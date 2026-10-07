@@ -111,6 +111,26 @@ async function hydrate(rows: PostRow[], viewerId: string): Promise<FeedPost[]> {
   return rows.map((row) => toFeedPost(row, viewerId, fork.get(row.id)));
 }
 
+function basePostQuery() {
+  return supabase.from('posts').select(POST_FIELDS).is('comments.deleted_at', null);
+}
+
+export type PostQuery = ReturnType<typeof basePostQuery>;
+
+/**
+ * Run a filtered post query and hydrate the rows. For the few places
+ * (adjacency lookups) that need their own filters without repeating the
+ * field list and provenance join.
+ */
+export async function runPostQuery(
+  viewerId: string,
+  build: (query: PostQuery) => PostQuery,
+): Promise<FeedPost[]> {
+  const { data, error } = await build(basePostQuery());
+  if (error) throw new Error(error.message);
+  return hydrate(data as unknown as PostRow[], viewerId);
+}
+
 /** Position in a chronological feed: the last post the reader has seen. */
 export interface FeedCursor {
   created_at: string;

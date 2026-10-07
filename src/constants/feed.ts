@@ -13,6 +13,16 @@ export const MIX_FOLLOWED_COUNT = 8;
 export const MIX_OUTSIDE_COUNT = 4;
 
 /**
+ * Adjacent Diversity. On a post's detail, up to this many neighbours by
+ * explicit relation (same daily prompt, same fork origin, direct branches).
+ * In Mix it up, outside slots prefer posts related to the chapter's followed
+ * posts before falling back to the people-balanced Explore pool. Both use
+ * only explicit relationships; nothing here reads likes or counts.
+ */
+export const ADJACENT_DETAIL_LIMIT = 2;
+export const MIX_ADJACENT_ENABLED = true;
+
+/**
  * Feed Intent: the reader declares what they want from the feed. The only
  * inputs to what they see are this choice and who they follow — never likes,
  * follower counts, or how long they looked at something.
