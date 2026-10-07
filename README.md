@@ -7,6 +7,12 @@ features yet.
 
 ## What's included
 
+Since 2026-10-06 the app also has EN/JA localization, one-level replies, Fork
+(branch a thought from a post), a daily prompt with an optional once-a-day
+reminder, and "Another angle" (same prompt / same origin neighbours). See
+`CLAUDE.md` for the rules behind each and `docs/next-phase-setup.md` for the
+one-time setup they need.
+
 - **Auth** — email/password sign-up, log in, log out, persisted sessions, clear error messages
 - **Profiles** — unique username, display name, optional photo and bio; view and edit your own
 - **Feed** — one shared feed of all users' posts, newest first, with pull-to-refresh and loading/empty/error states. No algorithm, no ranking, no personalization.
