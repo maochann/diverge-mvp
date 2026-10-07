@@ -7,6 +7,7 @@ import { LEGAL_URLS } from '@/constants/legal';
 import { Spacing, Type } from '@/constants/theme';
 import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
+import { useDailyPromptReminder } from '@/lib/daily-prompt-reminder';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -70,9 +71,10 @@ export default function SettingsScreen() {
   const { session, signOut } = useAuth();
   const { sets } = useRelations();
   const { colors } = useTheme();
-  const { t, preference } = useI18n();
+  const { t, preference, locale } = useI18n();
   const [busy, setBusy] = useState(false);
-  const reminderEnabled: boolean | null = null;
+  const reminder = useDailyPromptReminder(session?.user.id ?? '', locale);
+  const reminderEnabled = reminder.ready ? reminder.settings.enabled : null;
 
   const confirmLogout = () => {
     Alert.alert(t('settings.logoutTitle'), t('settings.logoutBody'), [
