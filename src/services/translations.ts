@@ -1,22 +1,19 @@
+import { tStatic } from '@/i18n/active';
+import type { Locale } from '@/i18n/core';
 import { supabase } from '@/lib/supabase';
 
 export type TranslationTarget = 'EN' | 'JA';
 
-/** Languages the app can translate into; everything else reads as English. */
-export function deviceTarget(): TranslationTarget {
-  try {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? '';
-    return locale.toLowerCase().startsWith('ja') ? 'JA' : 'EN';
-  } catch {
-    return 'EN';
-  }
+/** The language the reader has the app in is the language to translate into. */
+export function targetForLocale(locale: Locale): TranslationTarget {
+  return locale === 'ja' ? 'JA' : 'EN';
 }
 
 const JAPANESE = /[぀-ヿ㐀-鿿]/;
 
 /**
  * Whether a post is worth offering a translation for: written in Japanese
- * when the device reads English, or the other way round. A heuristic, but
+ * when the app is in English, or the other way round. A heuristic, but
  * the reader decides whether to press.
  */
 export function needsTranslation(text: string, target: TranslationTarget): boolean {
@@ -40,6 +37,6 @@ export async function translatePost(
     error?: string;
   }>('translate', { method: 'POST', body: { postId, target } });
   if (error) throw new Error(error.message);
-  if (!data?.text) throw new Error(data?.error ?? 'Could not translate this post.');
+  if (!data?.text) throw new Error(data?.error ?? tStatic('error.translate'));
   return { text: data.text, sourceLang: data.sourceLang ?? null };
 }

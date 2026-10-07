@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -20,6 +21,7 @@ import { useTheme } from '@/lib/theme';
 export default function SignInScreen() {
   const { signIn } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -54,29 +56,29 @@ export default function SignInScreen() {
           <View style={styles.heading}>
             <Text style={[styles.title, { color: colors.text }]}>Diverge</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Log in to your account
+              {t('signIn.subtitle')}
             </Text>
           </View>
 
           <View style={styles.form}>
             <TextField
-              label="Email"
+              label={t('auth.email')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
               textContentType="emailAddress"
-              placeholder="you@example.com"
+              placeholder={t('auth.emailPlaceholder')}
             />
             <TextField
-              label="Password"
+              label={t('auth.password')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoComplete="password"
               textContentType="password"
-              placeholder="Your password"
+              placeholder={t('auth.passwordPlaceholder')}
               onSubmitEditing={canSubmit ? handleSubmit : undefined}
               returnKeyType="go"
             />
@@ -86,7 +88,7 @@ export default function SignInScreen() {
             ) : null}
 
             <Button
-              title="Log in"
+              title={t('signIn.submit')}
               onPress={handleSubmit}
               disabled={!canSubmit}
               loading={submitting}
@@ -96,10 +98,10 @@ export default function SignInScreen() {
 
           <View style={styles.links}>
             <Link href="/sign-up" style={[styles.link, { color: colors.tint }]}>
-              No account? Sign up
+              {t('signIn.noAccount')}
             </Link>
             <Link href="/forgot-password" style={[styles.link, { color: colors.textSecondary }]}>
-              Forgot your password?
+              {t('signIn.forgot')}
             </Link>
           </View>
         </ScrollView>

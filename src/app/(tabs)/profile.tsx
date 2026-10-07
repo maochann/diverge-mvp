@@ -9,6 +9,7 @@ import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
 import { PostSkeletonList } from '@/components/post-skeleton';
 import { Spacing, Type } from '@/constants/theme';
+import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
@@ -20,6 +21,7 @@ export default function ProfileScreen() {
   const { session, profile, refreshProfile } = useAuth();
   const { sets } = useRelations();
   const { colors } = useTheme();
+  const { t, tp } = useI18n();
   const userId = session?.user.id ?? '';
 
   const [posts, setPosts] = useState<FeedPost[] | null>(null);
@@ -70,7 +72,7 @@ export default function ProfileScreen() {
       setPosts((current) =>
         (current ?? []).map((p) => (p.id === post.id ? post : p)),
       );
-      Alert.alert('Could not update like', errorMessage(e));
+      Alert.alert(t('feed.likeFailed'), errorMessage(e));
     }
   };
 
@@ -79,7 +81,7 @@ export default function ProfileScreen() {
       await deletePost(post.id);
       setPosts((current) => (current ?? []).filter((p) => p.id !== post.id));
     } catch (e) {
-      Alert.alert('Could not delete post', errorMessage(e));
+      Alert.alert(t('feed.deleteFailed'), errorMessage(e));
     }
   };
 
@@ -87,17 +89,16 @@ export default function ProfileScreen() {
     return (
       <MessageState
         icon="person-circle-outline"
-        title="Couldn't load your profile"
-        detail="Check your connection and try again."
-        actionTitle="Retry"
+        title={t('profile.loadFailed')}
+        detail={t('profile.loadFailedDetail')}
+        actionTitle={t('common.retry')}
         onAction={() => void refreshProfile().catch(() => undefined)}
       />
     );
   }
 
   const postCount = posts?.length ?? 0;
-  const countLabel =
-    posts === null ? '' : `${postCount} ${postCount === 1 ? 'post' : 'posts'}`;
+  const countLabel = posts === null ? '' : tp('profile.postCount', postCount);
 
   return (
     <FlatList
@@ -129,13 +130,13 @@ export default function ProfileScreen() {
               Muted and Blocked are management, so they live in Settings. */}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="People you follow"
+            accessibilityLabel={t('profile.followingA11y')}
             onPress={() => router.push('/people/following')}
             hitSlop={4}
             style={({ pressed }) => [styles.followingRow, pressed && styles.pressed]}
           >
             <Text style={[styles.followingLabel, { color: colors.text }]}>
-              {sets ? `${sets.following.size} following` : 'Following'}
+              {sets ? t('profile.followingCount', { n: sets.following.size }) : t('profile.following')}
             </Text>
             <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
           </Pressable>
@@ -143,7 +144,7 @@ export default function ProfileScreen() {
           <View style={styles.metaRow}>
             <Text style={[styles.count, { color: colors.textSecondary }]}>{countLabel}</Text>
             <Button
-              title="Edit profile"
+              title={t('profile.edit')}
               variant="outline"
               compact
               onPress={() => router.push('/edit-profile')}
@@ -151,7 +152,7 @@ export default function ProfileScreen() {
           </View>
         </View>
         {posts && posts.length > 0 ? (
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Posts</Text>
+          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('profile.posts')}</Text>
         ) : null}
         </>
       }
@@ -169,9 +170,9 @@ export default function ProfileScreen() {
           <MessageState
             compact
             icon="cloud-offline-outline"
-            title="Couldn't load your posts"
+            title={t('profile.postsLoadFailed')}
             detail={postsError}
-            actionTitle="Retry"
+            actionTitle={t('common.retry')}
             onAction={() => void loadPosts()}
           />
         ) : posts === null ? (
@@ -180,9 +181,9 @@ export default function ProfileScreen() {
           <MessageState
             compact
             icon="create-outline"
-            title="You haven't posted yet"
-            detail="Your posts will show up here."
-            actionTitle="Create a post"
+            title={t('profile.empty.title')}
+            detail={t('profile.empty.detail')}
+            actionTitle={t('profile.createPost')}
             onAction={() => router.navigate('/create')}
           />
         )

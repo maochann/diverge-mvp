@@ -18,6 +18,7 @@ import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { LEGAL_URLS } from '@/constants/legal';
 import { Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -27,6 +28,7 @@ const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 export default function SignUpScreen() {
   const { signUp } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -37,10 +39,10 @@ export default function SignUpScreen() {
 
   const usernameError =
     username.length > 0 && !USERNAME_PATTERN.test(username.trim().toLowerCase())
-      ? '3–20 characters: lowercase letters, numbers, underscores.'
+      ? t('signUp.usernameRule')
       : null;
   const passwordError =
-    password.length > 0 && password.length < 8 ? 'At least 8 characters.' : null;
+    password.length > 0 && password.length < 8 ? t('auth.passwordRule') : null;
   const canSubmit =
     email.trim().length > 0 &&
     password.length >= 8 &&
@@ -55,11 +57,9 @@ export default function SignUpScreen() {
     try {
       const needsConfirmation = await signUp(email, password, username, displayName);
       if (needsConfirmation) {
-        Alert.alert(
-          'Confirm your email',
-          'We sent you a confirmation link. Open it, then log in.',
-          [{ text: 'OK', onPress: () => router.back() }],
-        );
+        Alert.alert(t('signUp.confirmTitle'), t('signUp.confirmBody'), [
+          { text: t('common.ok'), onPress: () => router.back() },
+        ]);
       }
       // Otherwise the session is live and the root layout switches to the app.
     } catch (e) {
@@ -80,53 +80,53 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.heading}>
-            <Text style={[styles.title, { color: colors.text }]}>Create account</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{t('signUp.title')}</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              It only takes a minute.
+              {t('signUp.subtitle')}
             </Text>
           </View>
 
           <View style={styles.form}>
             <TextField
-              label="Email"
+              label={t('auth.email')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
               textContentType="emailAddress"
-              placeholder="you@example.com"
+              placeholder={t('auth.emailPlaceholder')}
             />
             <TextField
-              label="Password"
+              label={t('auth.password')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoComplete="new-password"
               textContentType="newPassword"
-              placeholder="At least 8 characters"
+              placeholder={t('auth.passwordHint')}
               error={passwordError}
             />
             <TextField
-              label="Username"
+              label={t('signUp.username')}
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
               autoCorrect={false}
-              placeholder="e.g. mao_t"
+              placeholder={t('signUp.usernamePlaceholder')}
               error={usernameError}
             />
             <TextField
-              label="Display name"
+              label={t('signUp.displayName')}
               value={displayName}
               onChangeText={setDisplayName}
-              placeholder="How your name appears"
+              placeholder={t('signUp.displayNamePlaceholder')}
             />
 
             <Pressable
               accessibilityRole="checkbox"
               accessibilityState={{ checked: agreed }}
-              accessibilityLabel="I agree to the Terms of Use and Privacy Policy"
+              accessibilityLabel={t('signUp.agreeA11y')}
               onPress={() => setAgreed((a) => !a)}
               hitSlop={6}
               style={styles.agreeRow}
@@ -137,21 +137,21 @@ export default function SignUpScreen() {
                 color={agreed ? colors.tint : colors.textTertiary}
               />
               <Text style={[styles.agreeText, { color: colors.textSecondary }]}>
-                I agree to the{' '}
+                {t('signUp.agreePrefix')}
                 <Text
                   style={{ color: colors.tint }}
                   onPress={() => void Linking.openURL(LEGAL_URLS.terms)}
                 >
-                  Terms of Use
-                </Text>{' '}
-                and{' '}
+                  {t('signUp.terms')}
+                </Text>
+                {t('signUp.and')}
                 <Text
                   style={{ color: colors.tint }}
                   onPress={() => void Linking.openURL(LEGAL_URLS.privacy)}
                 >
-                  Privacy Policy
+                  {t('signUp.privacy')}
                 </Text>
-                .
+                {t('signUp.agreeSuffix')}
               </Text>
             </Pressable>
 
@@ -160,7 +160,7 @@ export default function SignUpScreen() {
             ) : null}
 
             <Button
-              title="Sign up"
+              title={t('signUp.submit')}
               onPress={handleSubmit}
               disabled={!canSubmit}
               loading={submitting}
@@ -169,7 +169,7 @@ export default function SignUpScreen() {
           </View>
 
           <Link href="/sign-in" style={[styles.link, { color: colors.tint }]}>
-            Already have an account? Log in
+            {t('signUp.haveAccount')}
           </Link>
         </ScrollView>
       </KeyboardAvoidingView>

@@ -16,6 +16,7 @@ import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { PersonNode, type Disturbance } from '@/components/person-node';
 import { Spacing, Type } from '@/constants/theme';
+import { useI18n } from '@/i18n';
 import { insidePositionFor, layoutCanvas } from '@/lib/explore-layout';
 import {
   availableIn,
@@ -75,6 +76,7 @@ export function ExploreCanvas({
   onNextRound,
 }: ExploreCanvasProps) {
   const { colors } = useTheme();
+  const { t, tp } = useI18n();
   const reducedMotion = useReducedMotion();
   const [box, setBox] = useState({ width: 0, height: 0 });
   const [asList, setAsList] = useState(false);
@@ -150,31 +152,27 @@ export function ExploreCanvas({
   const insideCount = insideIds.length;
 
   const insideLine =
-    insideCount === 0
-      ? 'Your circle is empty for now.'
-      : insideCount === 1
-        ? '1 in your circle.'
-        : `${insideCount} in your circle.`;
+    insideCount === 0 ? t('explore.circleEmpty') : tp('explore.inCircle', insideCount);
 
   const footer = complete ? (
     <View style={styles.ending}>
       <EndingRule color={colors.textTertiary} />
       <Text style={[styles.endingTitle, { color: colors.text }]}>
-        {session.round === 1 ? 'That’s everyone beyond your circle.' : 'That’s everyone, again.'}
+        {session.round === 1 ? t('explore.everyoneRound1') : t('explore.everyoneAgain')}
       </Text>
       {more ? (
-        <Button title="One more from each" variant="outline" compact onPress={onNextRound} />
+        <Button title={t('explore.oneMoreFromEach')} variant="outline" compact onPress={onNextRound} />
       ) : (
         <Text style={[styles.endingDetail, { color: colors.textSecondary }]}>
-          Nothing more from them for now.
+          {t('explore.nothingMore')}
         </Text>
       )}
     </View>
   ) : (
     <View style={styles.status}>
       <Text style={[styles.statusLine, { color: colors.textSecondary }]}>
-        {remaining === 1 ? '1 still to meet.' : `${remaining} still to meet.`}
-        {session.round > 1 ? `  ·  Round ${session.round}` : ''}
+        {tp('explore.stillToMeet', remaining)}
+        {session.round > 1 ? `  ·  ${t('explore.round', { n: session.round })}` : ''}
       </Text>
       <Text style={[styles.statusLine, { color: colors.textTertiary }]}>{insideLine}</Text>
     </View>
@@ -183,7 +181,7 @@ export function ExploreCanvas({
   const toggle = (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={asList ? 'Show as space' : 'Show as list'}
+      accessibilityLabel={asList ? t('explore.showAsSpace') : t('explore.showAsList')}
       onPress={() => setAsList((v) => !v)}
       hitSlop={10}
       style={({ pressed }) => [styles.toggle, pressed && styles.pressed]}
@@ -215,7 +213,11 @@ export function ExploreCanvas({
                 key={person.id}
                 accessibilityRole="button"
                 accessibilityLabel={`${person.author.display_name}, ${
-                  post ? (seen ? 'seen' : 'not yet seen') : 'no more posts'
+                  post
+                    ? seen
+                      ? t('explore.state.seen')
+                      : t('explore.state.unseen')
+                    : t('explore.state.noMore')
                 }`}
                 onPress={post ? () => onOpenPerson(person.id) : undefined}
                 disabled={!post}
@@ -231,7 +233,7 @@ export function ExploreCanvas({
                     {person.author.display_name}
                   </Text>
                   <Text style={[styles.listMeta, { color: colors.textTertiary }]} numberOfLines={1}>
-                    {post ? `Latest post ${timeAgo(post.created_at)}` : 'No more posts'}
+                    {post ? t('explore.latestPost', { time: timeAgo(post.created_at) }) : t('explore.noMorePosts')}
                   </Text>
                 </View>
               </Pressable>
@@ -303,7 +305,7 @@ export function ExploreCanvas({
                 { left: center.x - CENTER_SIZE / 2, top: center.y - CENTER_SIZE / 2 },
               ]}
             >
-              <Avatar url={me?.avatar_url ?? null} name={me?.display_name ?? 'You'} size={CENTER_SIZE} />
+              <Avatar url={me?.avatar_url ?? null} name={me?.display_name ?? t('common.you')} size={CENTER_SIZE} />
             </View>
 
             {layout.outside.map((point, index) => {

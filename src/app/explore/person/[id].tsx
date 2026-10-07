@@ -8,6 +8,7 @@ import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
 import { PostSkeleton } from '@/components/post-skeleton';
 import { Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -22,6 +23,7 @@ export default function ExplorePersonSheet() {
   const { id: personId, postId } = useLocalSearchParams<{ id: string; postId: string }>();
   const { session } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
   const viewerId = session?.user.id ?? '';
 
   const [post, setPost] = useState<FeedPost | null>(null);
@@ -53,7 +55,7 @@ export default function ExplorePersonSheet() {
       await setLiked(current.id, viewerId, nextLiked);
     } catch (e) {
       setPost(current);
-      Alert.alert('Could not update like', errorMessage(e));
+      Alert.alert(t('feed.likeFailed'), errorMessage(e));
     }
   };
 
@@ -67,9 +69,9 @@ export default function ExplorePersonSheet() {
     return (
       <MessageState
         icon="cloud-offline-outline"
-        title="Couldn't load this post"
+        title={t('post.loadFailed')}
         detail={error}
-        actionTitle="Retry"
+        actionTitle={t('common.retry')}
         onAction={() => void load()}
       />
     );
@@ -84,7 +86,7 @@ export default function ExplorePersonSheet() {
         <>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`View ${post.author.display_name}'s profile`}
+            accessibilityLabel={t('explorePerson.viewProfileA11y', { name: post.author.display_name })}
             onPress={() => goTo(`/user/${personId}`)}
             style={({ pressed }) => [
               styles.personRow,
@@ -101,7 +103,7 @@ export default function ExplorePersonSheet() {
                 @{post.author.username}
               </Text>
             </View>
-            <Text style={[styles.profileLink, { color: colors.tint }]}>View profile</Text>
+            <Text style={[styles.profileLink, { color: colors.tint }]}>{t('explorePerson.viewProfile')}</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.tint} />
           </Pressable>
 

@@ -1,3 +1,4 @@
+import { tStatic } from '@/i18n/active';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/types';
 
@@ -28,7 +29,7 @@ export async function updateProfile(
     .eq('id', userId);
   if (error) {
     if (error.code === '23505') {
-      throw new Error('That username is already taken.');
+      throw new Error(tStatic('error.usernameTaken'));
     }
     throw new Error(error.message);
   }

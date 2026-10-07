@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Motion, Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useTheme } from '@/lib/theme';
 
 interface ChapterDividerProps {
@@ -29,6 +30,7 @@ const RULE_WIDTH = 24;
  */
 export function ChapterDivider({ chapter, note, fresh = false }: ChapterDividerProps) {
   const { colors } = useTheme();
+  const t = useT();
   const reducedMotion = useReducedMotion();
   const rule = useSharedValue(fresh && !reducedMotion ? 0 : 1);
   const fade = useSharedValue(fresh && !reducedMotion ? 0 : 1);
@@ -51,7 +53,7 @@ export function ChapterDivider({ chapter, note, fresh = false }: ChapterDividerP
     <View style={styles.block} accessibilityRole="header">
       <Animated.View style={[styles.rule, { backgroundColor: colors.textTertiary }, ruleStyle]} />
       <Animated.View style={fadeStyle}>
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Chapter {chapter}</Text>
+        <Text style={[styles.label, { color: colors.textSecondary }]}>{t('chapter.label', { n: chapter })}</Text>
         {note ? <Text style={[styles.note, { color: colors.textTertiary }]}>{note}</Text> : null}
       </Animated.View>
     </View>

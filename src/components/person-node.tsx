@@ -18,6 +18,7 @@ import { Avatar } from '@/components/avatar';
 import { Motion, Spacing, Type } from '@/constants/theme';
 import { fractionFor } from '@/lib/explore-layout';
 import { timeAgo } from '@/lib/format';
+import { useT } from '@/i18n';
 import { useTheme } from '@/lib/theme';
 import type { PostAuthor } from '@/types';
 
@@ -88,18 +89,19 @@ export function PersonNode({
   disturbance,
 }: PersonNodeProps) {
   const { colors } = useTheme();
+  const t = useT();
   const reducedMotion = useReducedMotion();
   const followed = moveTo !== null;
   const disabled = onPress === null || followed;
   const quiet = seen || disabled;
   const state = followed
-    ? 'now in your circle'
+    ? t('explore.state.inCircle')
     : disabled
-      ? 'no more posts'
+      ? t('explore.state.noMore')
       : seen
-        ? 'seen'
-        : 'not yet seen';
-  const when = postedAt ? `, latest post ${timeAgo(postedAt)}` : '';
+        ? t('explore.state.seen')
+        : t('explore.state.unseen');
+  const when = postedAt ? t('explore.latestPostA11y', { time: timeAgo(postedAt) }) : '';
 
   const driftX = useSharedValue(0);
   const driftY = useSharedValue(0);

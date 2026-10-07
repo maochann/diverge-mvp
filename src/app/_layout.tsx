@@ -10,6 +10,7 @@ import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { LocaleProvider, useT } from '@/i18n';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { RelationsProvider } from '@/lib/relations-context';
 import { Type } from '@/constants/theme';
@@ -18,6 +19,7 @@ import { navigationTheme, useTheme } from '@/lib/theme';
 function RootNavigator() {
   const { session, initializing, completeRecovery, recovering } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
 
   // Password-reset links open the app with a one-time code. Exchange it for
   // a session, then send the person straight to the new-password screen.
@@ -31,9 +33,9 @@ function RootNavigator() {
         if (isRecovery) router.replace('/change-password');
       })
       .catch((e: unknown) => {
-        Alert.alert('Reset link problem', e instanceof Error ? e.message : String(e));
+        Alert.alert(t('root.resetLinkProblem'), e instanceof Error ? e.message : String(e));
       });
-  }, [url, completeRecovery]);
+  }, [url, completeRecovery, t]);
 
   // If the session appeared before the navigator was ready, land on the
   // new-password screen once it is.
@@ -60,15 +62,15 @@ function RootNavigator() {
     >
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="post/[id]" options={{ title: 'Post', headerBackTitle: 'Back' }} />
-        <Stack.Screen name="user/[id]" options={{ title: '', headerBackTitle: 'Back' }} />
+        <Stack.Screen name="post/[id]" options={{ title: t('nav.post'), headerBackTitle: t('common.back') }} />
+        <Stack.Screen name="user/[id]" options={{ title: '', headerBackTitle: t('common.back') }} />
         <Stack.Screen
           name="people/[list]"
-          options={{ title: '', headerBackTitle: 'Back' }}
+          options={{ title: '', headerBackTitle: t('common.back') }}
         />
         <Stack.Screen
           name="report"
-          options={{ title: 'Report', presentation: 'modal' }}
+          options={{ title: t('nav.report'), presentation: 'modal' }}
         />
         <Stack.Screen
           name="explore/person/[id]"
@@ -80,21 +82,26 @@ function RootNavigator() {
             headerShown: false,
           }}
         />
-        <Stack.Screen name="settings" options={{ title: 'Settings', headerBackTitle: 'Back' }} />
+        <Stack.Screen name="settings" options={{ title: t('nav.settings'), headerBackTitle: t('common.back') }} />
+        <Stack.Screen name="language" options={{ title: t('nav.language'), headerBackTitle: t('common.back') }} />
+        <Stack.Screen
+          name="daily-prompt-settings"
+          options={{ title: t('nav.dailyPrompt'), headerBackTitle: t('common.back') }}
+        />
         <Stack.Screen
           name="change-password"
-          options={{ title: 'Change password', headerBackTitle: 'Back' }}
+          options={{ title: t('nav.changePassword'), headerBackTitle: t('common.back') }}
         />
         <Stack.Screen
           name="edit-profile"
-          options={{ title: 'Edit profile', presentation: 'modal' }}
+          options={{ title: t('nav.editProfile'), presentation: 'modal' }}
         />
       </Stack.Protected>
       <Stack.Protected guard={!session}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       </Stack.Protected>
       {/* Reachable signed in or out: reset links land here. */}
-      <Stack.Screen name="reset-password" options={{ title: 'Reset password', headerShown: false }} />
+      <Stack.Screen name="reset-password" options={{ title: t('nav.resetPassword'), headerShown: false }} />
     </Stack>
   );
 }
@@ -109,11 +116,13 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.flex}>
       <ThemeProvider value={navigationTheme(theme)}>
         <StatusBar style="auto" />
-        <AuthProvider>
-          <RelationsProvider>
-            <RootNavigator />
-          </RelationsProvider>
-        </AuthProvider>
+        <LocaleProvider>
+          <AuthProvider>
+            <RelationsProvider>
+              <RootNavigator />
+            </RelationsProvider>
+          </AuthProvider>
+        </LocaleProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

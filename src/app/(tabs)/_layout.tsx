@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View, type ColorValue } from 'react-native';
 
 import { ForkLine } from '@/components/fork-line';
 import { Motion, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { selectionHaptic } from '@/lib/haptics';
 import { useTheme } from '@/lib/theme';
 
@@ -31,6 +32,7 @@ function TabIcon({
 
 export default function TabsLayout() {
   const { colors } = useTheme();
+  const t = useT();
   return (
     <Tabs
       // Moving between the three places is a small change of scene: a short
@@ -58,7 +60,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Feed',
+          title: t('tab.feed'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="book-outline" color={color} focused={focused} />
           ),
@@ -67,8 +69,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="create"
         options={{
-          title: 'Post',
-          headerTitle: 'New post',
+          title: t('tab.post'),
+          headerTitle: t('tab.newPost'),
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="create-outline" color={color} focused={focused} />
           ),
@@ -77,11 +79,11 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: t('tab.profile'),
           headerRight: () => (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Settings"
+              accessibilityLabel={t('nav.settings')}
               onPress={() => router.push('/settings')}
               hitSlop={10}
               style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}

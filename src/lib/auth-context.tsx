@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { tStatic } from '@/i18n/active';
 import { supabase } from '@/lib/supabase';
 import { getProfile } from '@/services/profiles';
 import type { Profile } from '@/types';
@@ -117,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('id')
         .eq('username', cleanUsername)
         .maybeSingle();
-      if (taken) throw new Error('That username is already taken.');
+      if (taken) throw new Error(tStatic('error.usernameTaken'));
 
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -174,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw new Error(error.message);
     } else {
       const description = parsed.searchParams.get('error_description');
-      throw new Error(description ?? 'This reset link is no longer valid.');
+      throw new Error(description ?? tStatic('error.resetLinkInvalid'));
     }
     setRecovering(true);
     return true;

@@ -7,11 +7,12 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { Avatar } from '@/components/avatar';
 import { PostImages } from '@/components/post-images';
 import { Motion, Spacing, Type } from '@/constants/theme';
+import { useI18n } from '@/i18n';
 import { timeAgo } from '@/lib/format';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
-import { deviceTarget, needsTranslation, translatePost } from '@/services/translations';
+import { needsTranslation, targetForLocale, translatePost } from '@/services/translations';
 import type { FeedPost } from '@/types';
 
 interface PostCardProps {
@@ -77,12 +78,13 @@ export function PostCard({
   origin = 'circle',
 }: PostCardProps) {
   const { colors, scheme } = useTheme();
+  const { t, locale } = useI18n();
   const { block, isPending } = useRelations();
   const authorTappable = !isOwn && onOpenAuthor !== undefined;
 
   // Translation is offered, never applied: one quiet link, and the original
   // is always one tap away.
-  const target = deviceTarget();
+  const target = targetForLocale(locale);
   const translatable = needsTranslation(post.content, target);
   const [translation, setTranslation] = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
@@ -103,7 +105,7 @@ export function PostCard({
       setTranslation(result.text);
       setShowTranslation(true);
     } catch (e) {
-      Alert.alert('Could not translate', errorMessage(e));
+      Alert.alert(t('post.translateFailed'), errorMessage(e));
     } finally {
       setTranslating(false);
     }
@@ -113,19 +115,19 @@ export function PostCard({
 
   const confirmBlock = () => {
     Alert.alert(
-      `Block ${post.author.display_name}?`,
-      "You won't see each other's posts, comments or profiles, and any follows between you are removed. They won't be told.",
+      t('block.title', { name: post.author.display_name }),
+      t('block.body'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Block',
+          text: t('block.confirm'),
           style: 'destructive',
           onPress: async () => {
             try {
               await block(post.user_id);
               onAuthorBlocked?.(post.user_id);
             } catch (e) {
-              Alert.alert('Could not block', errorMessage(e));
+              Alert.alert(t('block.failed'), errorMessage(e));
             }
           },
         },
@@ -137,15 +139,15 @@ export function PostCard({
   const openMenu = () => {
     const actions: { label: string; destructive?: boolean; run: () => void }[] = [
       {
-        label: 'Report post',
+        label: t('post.reportPost'),
         run: () => router.push(`/report?postId=${post.id}&userId=${post.user_id}`),
       },
-      { label: `Block ${post.author.display_name}`, destructive: true, run: confirmBlock },
+      { label: t('post.blockName', { name: post.author.display_name }), destructive: true, run: confirmBlock },
     ];
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [...actions.map((a) => a.label), 'Cancel'],
+          options: [...actions.map((a) => a.label), t('common.cancel')],
           destructiveButtonIndex: 1,
           cancelButtonIndex: actions.length,
           userInterfaceStyle: scheme,
@@ -153,21 +155,21 @@ export function PostCard({
         (index) => actions[index]?.run(),
       );
     } else {
-      Alert.alert('Post options', undefined, [
+      Alert.alert(t('post.options'), undefined, [
         ...actions.map((a) => ({
           text: a.label,
           style: a.destructive ? ('destructive' as const) : ('default' as const),
           onPress: a.run,
         })),
-        { text: 'Cancel', style: 'cancel' as const },
+        { text: t('common.cancel'), style: 'cancel' as const },
       ]);
     }
   };
 
   const confirmDelete = () => {
-    Alert.alert('Delete post?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => onDelete(post) },
+    Alert.alert(t('post.deleteTitle'), t('post.deleteBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.delete'), style: 'destructive', onPress: () => onDelete(post) },
     ]);
   };
 
@@ -178,8 +180,8 @@ export function PostCard({
           accessibilityRole={authorTappable ? 'button' : undefined}
           accessibilityLabel={
             authorTappable
-              ? `Open ${post.author.display_name}'s profile${
-                  origin === 'beyond' ? ', from beyond your circle' : ''
+              ? `${t('common.openProfile', { name: post.author.display_name })}${
+                  origin === 'beyond' ? t('post.fromBeyondA11y') : ''
                 }`
               : undefined
           }
@@ -207,14 +209,14 @@ export function PostCard({
       {translatable ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={showTranslation ? 'Show original' : 'See translation'}
+          accessibilityLabel={showTranslation ? t('post.seeOriginal') : t('post.seeTranslation')}
           onPress={() => void toggleTranslation()}
           disabled={translating}
           hitSlop={6}
           style={({ pressed }) => [styles.translateLink, pressed && styles.pressed]}
         >
           <Text style={[styles.translateText, { color: colors.tint }]}>
-            {translating ? 'Translating…' : showTranslation ? 'Show original' : 'See translation'}
+            {translating ? t('post.translating') : showTranslation ? t('post.seeOriginal') : t('post.seeTranslation')}
           </Text>
         </Pressable>
       ) : null}
@@ -228,7 +230,7 @@ export function PostCard({
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={post.liked_by_me ? 'Remove like' : 'Like'}
+          accessibilityLabel={post.liked_by_me ? t('post.unlike') : t('post.like')}
           onPress={() => onToggleLike(post)}
           hitSlop={8}
           style={({ pressed }) => [styles.action, pressed && styles.pressed]}
@@ -246,7 +248,7 @@ export function PostCard({
         {showCommentButton ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="View comments"
+            accessibilityLabel={t('post.viewComments')}
             onPress={() => onOpenComments(post)}
             hitSlop={8}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
@@ -261,7 +263,7 @@ export function PostCard({
         {isOwn ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Delete post"
+            accessibilityLabel={t('post.deleteA11y')}
             onPress={confirmDelete}
             hitSlop={12}
             style={({ pressed }) => [styles.action, pressed && styles.pressed]}
@@ -271,7 +273,7 @@ export function PostCard({
         ) : (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="More options"
+            accessibilityLabel={t('common.moreOptions')}
             onPress={openMenu}
             disabled={isPending(post.user_id)}
             hitSlop={12}

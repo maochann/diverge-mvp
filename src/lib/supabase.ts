@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 
+import { tStatic } from '@/i18n/active';
+
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -42,8 +44,6 @@ if (!isServerRender) {
   });
 }
 
-const GENERIC_ERROR = 'Something went wrong. Please try again.';
-
 /**
  * Turn a thrown value into a message worth showing in the UI. Network-level
  * failures and the most common Supabase auth errors are reworded; everything
@@ -52,7 +52,7 @@ const GENERIC_ERROR = 'Something went wrong. Please try again.';
 export function errorMessage(error: unknown): string {
   const raw =
     error instanceof Error ? error.message : typeof error === 'string' ? error : '';
-  if (raw.length === 0) return GENERIC_ERROR;
+  if (raw.length === 0) return tStatic('error.generic');
 
   const lower = raw.toLowerCase();
   if (
@@ -62,19 +62,19 @@ export function errorMessage(error: unknown): string {
     lower.includes('internet connection appears to be offline') ||
     lower.includes('timed out')
   ) {
-    return 'Could not reach the server. Check your connection and try again.';
+    return tStatic('error.network');
   }
   if (lower.includes('invalid login credentials')) {
-    return 'Wrong email or password.';
+    return tStatic('error.wrongCredentials');
   }
   if (lower.includes('email not confirmed')) {
-    return 'Confirm your email first, then log in.';
+    return tStatic('error.emailNotConfirmed');
   }
   if (lower.includes('user already registered')) {
-    return 'An account with this email already exists.';
+    return tStatic('error.emailTaken');
   }
   if (lower.includes('jwt expired') || lower.includes('refresh token')) {
-    return 'Your session expired. Please log in again.';
+    return tStatic('error.sessionExpired');
   }
   return raw;
 }

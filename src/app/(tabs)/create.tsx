@@ -16,6 +16,7 @@ import {
 
 import { Button } from '@/components/button';
 import { ImageRatio, Radius, Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { decisionHaptic } from '@/lib/haptics';
 import { errorMessage } from '@/lib/supabase';
@@ -29,6 +30,7 @@ const MAX_PHOTOS = 4;
 export default function CreatePostScreen() {
   const { session } = useAuth();
   const { colors, scheme } = useTheme();
+  const t = useT();
   const [content, setContent] = useState('');
   const [images, setImages] = useState<PickedImage[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -44,7 +46,7 @@ export default function CreatePostScreen() {
       const picked = await pickImages(room);
       if (picked.length > 0) setImages((current) => [...current, ...picked].slice(0, MAX_PHOTOS));
     } catch (e) {
-      Alert.alert('Could not open photos', errorMessage(e));
+      Alert.alert(t('create.photosFailed'), errorMessage(e));
     }
   };
 
@@ -58,7 +60,7 @@ export default function CreatePostScreen() {
     try {
       const imageUrls: string[] = [];
       for (const [index, image] of images.entries()) {
-        if (images.length > 1) setUploadProgress(`Uploading photo ${index + 1} of ${images.length}…`);
+        if (images.length > 1) setUploadProgress(t('create.uploading', { n: index + 1, total: images.length }));
         imageUrls.push(await uploadImage('post-images', session.user.id, image));
       }
       setUploadProgress(null);
@@ -72,7 +74,7 @@ export default function CreatePostScreen() {
       router.navigate('/');
       router.push(`/post/${postId}`);
     } catch (e) {
-      Alert.alert('Could not publish post', errorMessage(e));
+      Alert.alert(t('create.publishFailed'), errorMessage(e));
     } finally {
       setSubmitting(false);
       setUploadProgress(null);
@@ -91,10 +93,10 @@ export default function CreatePostScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <TextInput
-          accessibilityLabel="Post text"
+          accessibilityLabel={t('create.textA11y')}
           value={content}
           onChangeText={(t) => setContent(t.slice(0, MAX_LENGTH))}
-          placeholder="Write something."
+          placeholder={t('create.placeholder')}
           placeholderTextColor={colors.textTertiary}
           keyboardAppearance={scheme}
           multiline
@@ -117,7 +119,7 @@ export default function CreatePostScreen() {
                 />
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Remove photo ${index + 1}`}
+                  accessibilityLabel={t('create.removePhoto', { n: index + 1 })}
                   onPress={() => removeImage(index)}
                   hitSlop={8}
                   style={styles.removeButton}
@@ -132,7 +134,7 @@ export default function CreatePostScreen() {
         <View style={[styles.toolbar, { borderTopColor: colors.border }]}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={images.length === 0 ? 'Add photos' : 'Add more photos'}
+            accessibilityLabel={images.length === 0 ? t('create.addPhotos') : t('create.addMorePhotos')}
             onPress={handlePickImages}
             disabled={images.length >= MAX_PHOTOS}
             hitSlop={8}
@@ -144,10 +146,10 @@ export default function CreatePostScreen() {
             <Ionicons name="images-outline" size={24} color={colors.tint} />
             <Text style={[styles.toolLabel, { color: colors.tint }]}>
               {images.length === 0
-                ? 'Add photos'
+                ? t('create.addPhotos')
                 : images.length >= MAX_PHOTOS
-                  ? `${MAX_PHOTOS} photos`
-                  : `Add more · ${images.length}/${MAX_PHOTOS}`}
+                  ? t('create.photosMax', { max: MAX_PHOTOS })
+                  : t('create.addMore', { n: images.length, max: MAX_PHOTOS })}
             </Text>
           </Pressable>
           {nearLimit ? (
@@ -158,7 +160,7 @@ export default function CreatePostScreen() {
         </View>
 
         <Button
-          title={uploadProgress ?? (submitting ? 'Publishing…' : 'Publish')}
+          title={uploadProgress ?? (submitting ? t('create.publishing') : t('create.publish'))}
           onPress={handleSubmit}
           disabled={!canSubmit}
           loading={submitting}

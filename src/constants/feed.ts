@@ -21,30 +21,9 @@ export type FeedIntent = 'catch_up' | 'mix_it_up' | 'explore';
 
 export const DEFAULT_FEED_INTENT: FeedIntent = 'catch_up';
 
-export interface FeedIntentOption {
-  key: FeedIntent;
-  label: string;
-  description: string;
-}
-
-export const FEED_INTENTS: readonly FeedIntentOption[] = [
-  {
-    key: 'catch_up',
-    label: 'Catch up',
-    description: 'The people you follow, newest first.',
-  },
-  {
-    key: 'mix_it_up',
-    label: 'Mix it up',
-    description: 'Your circle, with a few voices from beyond it.',
-  },
-  {
-    key: 'explore',
-    label: 'Explore',
-    description: 'Everyone beyond your circle, one post each.',
-  },
-];
+/** Labels and descriptions live in the translation dictionary under `intent.<key>.*`. */
+export const FEED_INTENTS: readonly FeedIntent[] = ['catch_up', 'mix_it_up', 'explore'];
 
 export function isFeedIntent(value: unknown): value is FeedIntent {
-  return FEED_INTENTS.some((o) => o.key === value);
+  return FEED_INTENTS.some((o) => o === value);
 }

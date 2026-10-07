@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { MessageState } from '@/components/message-state';
+import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { useTheme } from '@/lib/theme';
 
@@ -19,6 +20,7 @@ export default function ResetPasswordScreen() {
   }>();
   const { session, recovering } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
   const [waited, setWaited] = useState(false);
 
   useEffect(() => {
@@ -34,13 +36,13 @@ export default function ResetPasswordScreen() {
     return (
       <MessageState
         icon="mail-unread-outline"
-        title="That link didn't work"
+        title={t('resetPassword.failedTitle')}
         detail={
           errorDescription
-            ? `${errorDescription}. Request a new code instead; it works without opening any link.`
-            : 'Request a new code instead; it works without opening any link.'
+            ? t('resetPassword.failedDetailWithReason', { reason: errorDescription })
+            : t('resetPassword.failedDetail')
         }
-        actionTitle="Get a new code"
+        actionTitle={t('resetPassword.getCode')}
         onAction={() => router.replace(session ? '/change-password' : '/forgot-password')}
       />
     );

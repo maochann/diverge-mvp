@@ -5,6 +5,7 @@ import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'r
 
 import { LEGAL_URLS } from '@/constants/legal';
 import { Spacing, Type } from '@/constants/theme';
+import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
@@ -69,20 +70,22 @@ export default function SettingsScreen() {
   const { session, signOut } = useAuth();
   const { sets } = useRelations();
   const { colors } = useTheme();
+  const { t, preference } = useI18n();
   const [busy, setBusy] = useState(false);
+  const reminderEnabled: boolean | null = null;
 
   const confirmLogout = () => {
-    Alert.alert('Log out?', 'You can log back in any time.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('settings.logoutTitle'), t('settings.logoutBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Log out',
+        text: t('settings.logOut'),
         style: 'destructive',
         onPress: async () => {
           setBusy(true);
           try {
             await signOut();
           } catch (e) {
-            Alert.alert('Could not log out', errorMessage(e));
+            Alert.alert(t('settings.logoutFailed'), errorMessage(e));
             setBusy(false);
           }
         },
@@ -93,18 +96,18 @@ export default function SettingsScreen() {
   /** Two confirmations: this cannot be undone and takes everything with it. */
   const confirmDeleteAccount = () => {
     Alert.alert(
-      'Delete your account?',
-      'Your profile, posts, comments, likes and photos will be permanently deleted. This cannot be undone.',
+      t('settings.deleteTitle'),
+      t('settings.deleteBody'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Continue',
+          text: t('common.continue'),
           style: 'destructive',
           onPress: () =>
-            Alert.alert('Are you sure?', 'This is permanent.', [
-              { text: 'Keep my account', style: 'cancel' },
+            Alert.alert(t('settings.deleteSureTitle'), t('settings.deleteSureBody'), [
+              { text: t('settings.keepAccount'), style: 'cancel' },
               {
-                text: 'Delete everything',
+                text: t('settings.deleteEverything'),
                 style: 'destructive',
                 onPress: async () => {
                   setBusy(true);
@@ -113,7 +116,7 @@ export default function SettingsScreen() {
                     // The user no longer exists; clear the local session.
                     await signOut().catch(() => undefined);
                   } catch (e) {
-                    Alert.alert('Could not delete account', errorMessage(e));
+                    Alert.alert(t('settings.deleteFailed'), errorMessage(e));
                     setBusy(false);
                   }
                 },
@@ -129,44 +132,55 @@ export default function SettingsScreen() {
       style={[styles.screen, { backgroundColor: colors.background }]}
       contentContainerStyle={styles.container}
     >
-      <Section title="Account">
-        <Row label="Email" detail={session?.user.email ?? ''} onPress={() => undefined} />
-        <Row label="Change password" onPress={() => router.push('/change-password')} />
+      <Section title={t('settings.account')}>
+        <Row label={t('settings.email')} detail={session?.user.email ?? ''} onPress={() => undefined} />
+        <Row label={t('settings.changePassword')} onPress={() => router.push('/change-password')} />
       </Section>
 
-      <Section title="Privacy">
+      <Section title={t('settings.preferences')}>
         <Row
-          label="Muted accounts"
+          label={t('settings.language')}
+          detail={t(`language.${preference}`)}
+          onPress={() => router.push('/language')}
+        />
+        <Row
+          label={t('settings.dailyPrompt')}
+          detail={reminderEnabled === null ? undefined : reminderEnabled ? t('settings.on') : t('settings.off')}
+          onPress={() => router.push('/daily-prompt-settings')}
+        />
+      </Section>
+
+      <Section title={t('settings.privacy')}>
+        <Row
+          label={t('settings.muted')}
           detail={sets ? String(sets.muted.size) : undefined}
           onPress={() => router.push('/people/muted')}
         />
         <Row
-          label="Blocked accounts"
+          label={t('settings.blocked')}
           detail={sets ? String(sets.blocked.size) : undefined}
           onPress={() => router.push('/people/blocked')}
         />
       </Section>
 
-      <Section title="About">
-        <Row label="Terms of Use" external onPress={() => void Linking.openURL(LEGAL_URLS.terms)} />
+      <Section title={t('settings.about')}>
+        <Row label={t('settings.terms')} external onPress={() => void Linking.openURL(LEGAL_URLS.terms)} />
         <Row
-          label="Privacy Policy"
+          label={t('settings.privacyPolicy')}
           external
           onPress={() => void Linking.openURL(LEGAL_URLS.privacy)}
         />
       </Section>
 
       <Section title="">
-        <Row label="Log out" onPress={busy ? () => undefined : confirmLogout} />
+        <Row label={t('settings.logOut')} onPress={busy ? () => undefined : confirmLogout} />
         <Row
-          label="Delete account"
+          label={t('settings.deleteAccount')}
           destructive
           onPress={busy ? () => undefined : confirmDeleteAccount}
         />
       </Section>
-      <Text style={[styles.hint, { color: colors.textTertiary }]}>
-        Deleting your account permanently removes your posts, comments and photos.
-      </Text>
+      <Text style={[styles.hint, { color: colors.textTertiary }]}>{t('settings.hint')}</Text>
     </ScrollView>
   );
 }

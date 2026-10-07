@@ -11,6 +11,7 @@ import { FlatList } from 'react-native';
 
 import { PostImage } from '@/components/post-image';
 import { ImageRatio, Radius, Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useTheme } from '@/lib/theme';
 
 interface PostImagesProps {
@@ -23,6 +24,7 @@ interface PostImagesProps {
  */
 export function PostImages({ urls }: PostImagesProps) {
   const { colors } = useTheme();
+  const t = useT();
   const { width: windowWidth } = useWindowDimensions();
   const [page, setPage] = useState(0);
 
@@ -57,7 +59,7 @@ export function PostImages({ urls }: PostImagesProps) {
       />
       <View style={[styles.counter, { backgroundColor: colors.background }]}>
         <Text style={[styles.counterText, { color: colors.textSecondary }]}>
-          {page + 1} / {urls.length}
+          {t('post.imageCounter', { current: page + 1, total: urls.length })}
         </Text>
       </View>
     </View>

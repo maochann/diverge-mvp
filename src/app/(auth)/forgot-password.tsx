@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -13,6 +14,7 @@ import { useTheme } from '@/lib/theme';
 export default function ForgotPasswordScreen() {
   const { requestPasswordReset, verifyRecoveryCode } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -53,66 +55,64 @@ export default function ForgotPasswordScreen() {
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.heading}>
-            <Text style={[styles.title, { color: colors.text }]}>Reset password</Text>
+            <Text style={[styles.title, { color: colors.text }]}>{t('forgot.title')}</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              {sent
-                ? `If that address has an account, a code is on its way to ${email.trim()}. Enter it below.`
-                : "We'll email you a code so you can choose a new password."}
+              {sent ? t('forgot.introSent', { email: email.trim() }) : t('forgot.intro')}
             </Text>
           </View>
 
           {sent ? (
             <View style={styles.form}>
               <TextField
-                label="Code from the email"
+                label={t('forgot.codeLabel')}
                 value={code}
                 onChangeText={(t) => setCode(t.replace(/\D/g, '').slice(0, 8))}
                 keyboardType="number-pad"
                 textContentType="oneTimeCode"
                 autoComplete="one-time-code"
-                placeholder="12345678"
+                placeholder={t('forgot.codePlaceholder')}
                 autoFocus
               />
               {error ? (
                 <Text style={[styles.error, { color: colors.danger }]}>{error}</Text>
               ) : null}
               <Button
-                title="Continue"
+                title={t('common.continue')}
                 onPress={handleVerify}
                 disabled={code.length < 6 || submitting}
                 loading={submitting}
               />
               <Button
-                title="Send a new code"
+                title={t('forgot.newCode')}
                 variant="secondary"
                 onPress={handleSubmit}
                 disabled={submitting}
               />
-              <Button title="Back to log in" variant="outline" onPress={() => router.back()} />
+              <Button title={t('forgot.backToLogin')} variant="outline" onPress={() => router.back()} />
             </View>
           ) : (
             <View style={styles.form}>
               <TextField
-                label="Email"
+                label={t('auth.email')}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
                 autoComplete="email"
                 keyboardType="email-address"
                 textContentType="emailAddress"
-                placeholder="you@example.com"
+                placeholder={t('auth.emailPlaceholder')}
                 autoFocus
               />
               {error ? (
                 <Text style={[styles.error, { color: colors.danger }]}>{error}</Text>
               ) : null}
               <Button
-                title="Send reset link"
+                title={t('forgot.sendCode')}
                 onPress={handleSubmit}
                 disabled={email.trim().length === 0 || submitting}
                 loading={submitting}
               />
-              <Button title="Cancel" variant="secondary" onPress={() => router.back()} />
+              <Button title={t('common.cancel')} variant="secondary" onPress={() => router.back()} />
             </View>
           )}
         </ScrollView>
