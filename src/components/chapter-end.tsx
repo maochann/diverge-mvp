@@ -11,6 +11,7 @@ import Animated, {
 import { Button } from '@/components/button';
 import { ForkLine } from '@/components/fork-line';
 import { Spacing, Type } from '@/constants/theme';
+import { useI18n } from '@/i18n';
 import { useTheme } from '@/lib/theme';
 
 type ChapterEndProps =
@@ -48,6 +49,7 @@ function EndingRule({ color }: { color: string }) {
 
 export function ChapterEnd(props: ChapterEndProps) {
   const { colors } = useTheme();
+  const { t, tp } = useI18n();
   const { height } = useWindowDimensions();
   const minHeight = Math.round(height * 0.55);
 
@@ -55,13 +57,11 @@ export function ChapterEnd(props: ChapterEndProps) {
     return (
       <View style={[styles.card, { minHeight }]}>
         <EndingRule color={colors.textTertiary} />
-        <Text style={[styles.title, { color: colors.text }]}>You&apos;re caught up</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('chapter.caughtUp')}</Text>
         <Text style={[styles.detail, { color: colors.textSecondary }]}>
-          Nothing new right now.
+          {t('chapter.nothingNew')}
         </Text>
-        <Text style={[styles.hint, { color: colors.textTertiary }]}>
-          Pull down to check for new posts.
-        </Text>
+        <Text style={[styles.hint, { color: colors.textTertiary }]}>{t('chapter.pullDown')}</Text>
       </View>
     );
   }
@@ -74,14 +74,13 @@ export function ChapterEnd(props: ChapterEndProps) {
         <ForkLine width={36} color={colors.textTertiary} />
         <View style={[styles.rule, { backgroundColor: colors.border }]} />
       </View>
-      <Text style={[styles.title, { color: colors.text }]}>End of chapter {chapter}</Text>
+      <Text style={[styles.title, { color: colors.text }]}>{t('chapter.end', { n: chapter })}</Text>
       <Text style={[styles.detail, { color: colors.textSecondary }]}>
-        {postCount} {postCount === 1 ? 'post' : 'posts'} · {peopleCount}{' '}
-        {peopleCount === 1 ? 'person' : 'people'}
+        {tp('chapter.posts', postCount)} · {tp('chapter.people', peopleCount)}
       </Text>
       {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
       <Button
-        title={error ? 'Try again' : 'See another chapter'}
+        title={error ? t('common.tryAgain') : t('chapter.seeAnother')}
         variant="outline"
         compact
         loading={loading}

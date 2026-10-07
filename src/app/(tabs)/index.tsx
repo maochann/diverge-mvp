@@ -19,6 +19,7 @@ import { PULL_THRESHOLD, PullFork } from '@/components/pull-fork';
 import { ExploreCanvas } from '@/components/explore-canvas';
 import { CHAPTER_SIZE, type FeedIntent } from '@/constants/feed';
 import { Motion } from '@/constants/theme';
+import { useT, type Translate } from '@/i18n';
 import {
   markSeen,
   nextRound,
@@ -145,22 +146,26 @@ function mapPosts(
 }
 
 /** What to say above a Mix chapter when one side of the mix is empty. */
-function mixNote(followedCount: number, outsideCount: number, followingAnyone: boolean) {
+function mixNote(
+  t: Translate,
+  followedCount: number,
+  outsideCount: number,
+  followingAnyone: boolean,
+) {
   if (followedCount + outsideCount === 0) return null;
   if (followedCount === 0) {
-    return followingAnyone
-      ? 'Nothing new from your circle. This chapter is all from beyond it.'
-      : 'Nobody in your circle yet. This chapter is all from beyond it.';
+    return followingAnyone ? t('feed.mixNote.noneFromCircle') : t('feed.mixNote.emptyCircle');
   }
   if (outsideCount === 0) {
-    return 'All from your circle this time.';
+    return t('feed.mixNote.allCircle');
   }
-  return `${followedCount} from your circle · ${outsideCount} from beyond`;
+  return t('feed.mixNote.split', { followed: followedCount, outside: outsideCount });
 }
 
 export default function FeedScreen() {
   const { session: auth, profile } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
   const userId = auth?.user.id ?? '';
   const { intent, setIntent, ready: intentReady } = useFeedIntent(userId);
   const { sets, loadError: followError, reload: reloadRelations } = useRelations();
@@ -258,7 +263,7 @@ export default function FeedScreen() {
           setSession({
             intent: 'mix_it_up',
             chapters: [posts],
-            notes: [mixNote(mix.usedFollowed, mix.usedOutside, authorIds.length > 0)],
+            notes: [mixNote(t, mix.usedFollowed, mix.usedOutside, authorIds.length > 0)],
             cutoff: outside.cutoff,
             followed: {
               cursor: lastF ? { created_at: lastF.created_at, id: lastF.id } : null,
@@ -281,7 +286,7 @@ export default function FeedScreen() {
         starting.current = false;
       }
     },
-    [userId],
+    [userId, t],
   );
 
   /**
@@ -432,7 +437,7 @@ export default function FeedScreen() {
                 chapters: posts.length > 0 ? [...s.chapters, posts] : s.chapters,
                 notes:
                   posts.length > 0
-                    ? [...s.notes, mixNote(mix.usedFollowed, mix.usedOutside, authorIds.length > 0)]
+                    ? [...s.notes, mixNote(t, mix.usedFollowed, mix.usedOutside, authorIds.length > 0)]
                     : s.notes,
                 followed: {
                   cursor:
@@ -482,7 +487,7 @@ export default function FeedScreen() {
           ? { ...s, chapters: mapPosts(s.chapters, (p) => (p.id === post.id ? post : p)) }
           : s,
       );
-      Alert.alert('Could not update like', errorMessage(e));
+      Alert.alert(t('feed.likeFailed'), errorMessage(e));
     }
   };
 
@@ -495,7 +500,7 @@ export default function FeedScreen() {
           : s,
       );
     } catch (e) {
-      Alert.alert('Could not delete post', errorMessage(e));
+      Alert.alert(t('feed.deleteFailed'), errorMessage(e));
     }
   };
 
@@ -534,9 +539,9 @@ export default function FeedScreen() {
     return (
       <MessageState
         icon="cloud-offline-outline"
-        title="Couldn't load who you follow"
+        title={t('feed.followLoadFailed')}
         detail={followError}
-        actionTitle="Retry"
+        actionTitle={t('common.retry')}
         onAction={() => void handleRefresh()}
       />
     );
@@ -550,9 +555,9 @@ export default function FeedScreen() {
     return (
       <MessageState
         icon="cloud-offline-outline"
-        title="Couldn't load the feed"
+        title={t('feed.loadFailed')}
         detail={initialError ?? undefined}
-        actionTitle="Retry"
+        actionTitle={t('common.retry')}
         onAction={() => void startSession(intent)}
       />
     );
@@ -567,21 +572,21 @@ export default function FeedScreen() {
           {othersCount === 0 ? (
             <MessageState
               icon="newspaper-outline"
-              title="No one else is here yet"
-              detail="When other people join and post, you'll find them here."
+              title={t('feed.noOneElse.title')}
+              detail={t('feed.noOneElse.detail')}
             />
           ) : othersCount !== null && othersCount <= (following?.size ?? 0) ? (
             <MessageState
               icon="checkmark-done-outline"
-              title="You follow everyone here"
-              detail="There's no one outside your circle right now."
+              title={t('feed.followEveryone.title')}
+              detail={t('feed.followEveryone.detail')}
             />
           ) : (
             <MessageState
               icon="newspaper-outline"
-              title="Nobody outside your circle has posted yet"
-              detail="Pull down to check again later."
-              actionTitle="Check again"
+              title={t('feed.nobodyOutside.title')}
+              detail={t('feed.nobodyOutside.detail')}
+              actionTitle={t('feed.checkAgain')}
               onAction={() => void handleRefresh()}
             />
           )}
@@ -624,17 +629,17 @@ export default function FeedScreen() {
       return followingAnyone ? (
         <MessageState
           icon="time-outline"
-          title="Nobody you follow has posted yet"
-          detail="Their posts will show up here when they do."
-          actionTitle="Explore people"
+          title={t('feed.nobodyFollowedPosted.title')}
+          detail={t('feed.nobodyFollowedPosted.detail')}
+          actionTitle={t('feed.explorePeople')}
           onAction={openExplore}
         />
       ) : (
         <MessageState
           icon="people-outline"
-          title="You're not following anyone yet"
-          detail="Catch up shows posts from the people you choose to follow."
-          actionTitle="Explore people"
+          title={t('feed.notFollowing.title')}
+          detail={t('feed.notFollowing.detail')}
+          actionTitle={t('feed.explorePeople')}
           onAction={openExplore}
         />
       );
@@ -644,8 +649,8 @@ export default function FeedScreen() {
       return (
         <MessageState
           icon="newspaper-outline"
-          title="No one else is here yet"
-          detail="When other people join and post, you'll find them here."
+          title={t('feed.noOneElse.title')}
+          detail={t('feed.noOneElse.detail')}
         />
       );
     }
@@ -653,16 +658,16 @@ export default function FeedScreen() {
       return (
         <MessageState
           icon="checkmark-done-outline"
-          title="You follow everyone here"
-          detail="There's no one outside your circle right now."
+          title={t('feed.followEveryone.title')}
+          detail={t('feed.followEveryone.detail')}
         />
       );
     }
     return (
       <MessageState
         icon="newspaper-outline"
-        title="Nobody outside your circle has posted yet"
-        detail="Pull down to check again later."
+        title={t('feed.nobodyOutside.title')}
+        detail={t('feed.nobodyOutside.detail')}
       />
     );
   })();

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 
 import { ImageRatio, Motion, Radius } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useTheme } from '@/lib/theme';
 
 // Remembered per URL so a card keeps its size when the list re-renders or the
@@ -31,6 +32,7 @@ interface PostImageProps {
 /** Full-width post image in one of three frames, revealed with a soft dissolve. */
 export function PostImage({ uri, fill = false }: PostImageProps) {
   const { colors } = useTheme();
+  const t = useT();
   const [ratio, setRatio] = useState(() => ratioCache.get(uri) ?? ImageRatio.fallback);
 
   const handleLoad = (event: ImageLoadEventData) => {
@@ -49,7 +51,7 @@ export function PostImage({ uri, fill = false }: PostImageProps) {
       ]}
       contentFit="cover"
       transition={{ duration: Motion.slow, effect: 'cross-dissolve' }}
-      accessibilityLabel="Post image"
+      accessibilityLabel={t('post.image')}
     />
   );
 }

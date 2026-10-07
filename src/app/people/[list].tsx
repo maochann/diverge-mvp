@@ -7,6 +7,8 @@ import { Button } from '@/components/button';
 import { FollowButton } from '@/components/follow-button';
 import { MessageState } from '@/components/message-state';
 import { Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
+import type { TranslationKey } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
@@ -21,25 +23,25 @@ type ListName = 'following' | 'muted' | 'blocked';
 
 const LISTS: Record<
   ListName,
-  { kind: RelationKind; title: string; emptyTitle: string; emptyDetail: string }
+  { kind: RelationKind; title: TranslationKey; emptyTitle: TranslationKey; emptyDetail: TranslationKey }
 > = {
   following: {
     kind: 'follow',
-    title: 'Following',
-    emptyTitle: "You're not following anyone yet",
-    emptyDetail: 'Following someone is how you choose whose posts reach your Catch up feed.',
+    title: 'people.following.title',
+    emptyTitle: 'people.following.emptyTitle',
+    emptyDetail: 'people.following.emptyDetail',
   },
   muted: {
     kind: 'mute',
-    title: 'Muted',
-    emptyTitle: 'No muted accounts',
-    emptyDetail: "Muting hides someone's posts from your feed. They won't know.",
+    title: 'people.muted.title',
+    emptyTitle: 'people.muted.emptyTitle',
+    emptyDetail: 'people.muted.emptyDetail',
   },
   blocked: {
     kind: 'block',
-    title: 'Blocked',
-    emptyTitle: 'No blocked accounts',
-    emptyDetail: "Blocking hides you from each other completely. They won't be told.",
+    title: 'people.blocked.title',
+    emptyTitle: 'people.blocked.emptyTitle',
+    emptyDetail: 'people.blocked.emptyDetail',
   },
 };
 
@@ -56,6 +58,7 @@ export default function PeopleListScreen() {
   const { list } = useLocalSearchParams<{ list: string }>();
   const { session } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
   const { isMuted, isBlocked, isPending, toggleMute, unblock } = useRelations();
   const userId = session?.user.id ?? '';
 
@@ -93,7 +96,7 @@ export default function PeopleListScreen() {
     try {
       await toggleMute(person.id);
     } catch (e) {
-      Alert.alert('Could not update mute', errorMessage(e));
+      Alert.alert(t('user.muteFailed'), errorMessage(e));
     }
   };
 
@@ -101,7 +104,7 @@ export default function PeopleListScreen() {
     try {
       await unblock(person.id);
     } catch (e) {
-      Alert.alert('Could not unblock', errorMessage(e));
+      Alert.alert(t('people.unblockFailed'), errorMessage(e));
     }
   };
 
@@ -111,7 +114,7 @@ export default function PeopleListScreen() {
       const muted = isMuted(person.id);
       return (
         <Button
-          title={muted ? 'Unmute' : 'Mute'}
+          title={muted ? t('user.unmute') : t('user.mute')}
           variant="outline"
           compact
           disabled={isPending(person.id)}
@@ -122,7 +125,7 @@ export default function PeopleListScreen() {
     const blocked = isBlocked(person.id);
     return (
       <Button
-        title={blocked ? 'Unblock' : 'Blocked'}
+        title={blocked ? t('people.unblock') : t('people.blocked')}
         variant="outline"
         compact
         // Re-blocking from here would need the full confirmation; use the profile.
@@ -135,12 +138,12 @@ export default function PeopleListScreen() {
   if (people === null && error !== null) {
     return (
       <>
-        <Stack.Screen options={{ title: config.title }} />
+        <Stack.Screen options={{ title: t(config.title) }} />
         <MessageState
           icon="cloud-offline-outline"
-          title={`Couldn't load ${config.title.toLowerCase()}`}
+          title={t('people.loadFailed', { list: t(config.title) })}
           detail={error}
-          actionTitle="Retry"
+          actionTitle={t('common.retry')}
           onAction={() => void load()}
         />
       </>
@@ -152,7 +155,7 @@ export default function PeopleListScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: config.title }} />
+      <Stack.Screen options={{ title: t(config.title) }} />
       <FlatList
         style={[styles.screen, { backgroundColor: colors.background }]}
         // Rows for people just removed from the list stay until the next
@@ -165,7 +168,7 @@ export default function PeopleListScreen() {
           <View style={[styles.row, { borderBottomColor: colors.border }]}>
             <Pressable
               accessibilityRole={canOpen ? 'button' : undefined}
-              accessibilityLabel={canOpen ? `Open ${item.display_name}'s profile` : undefined}
+              accessibilityLabel={canOpen ? t('common.openProfile', { name: item.display_name }) : undefined}
               onPress={canOpen ? () => router.push(`/user/${item.id}`) : undefined}
               disabled={!canOpen}
               style={({ pressed }) => [styles.person, pressed && canOpen && styles.pressed]}
@@ -190,9 +193,9 @@ export default function PeopleListScreen() {
           people === null ? null : (
             <MessageState
               icon="people-outline"
-              title={config.emptyTitle}
-              detail={config.emptyDetail}
-              actionTitle={config.kind === 'follow' ? 'Explore people' : undefined}
+              title={t(config.emptyTitle)}
+              detail={t(config.emptyDetail)}
+              actionTitle={config.kind === 'follow' ? t('feed.explorePeople') : undefined}
               onAction={config.kind === 'follow' ? () => router.navigate('/') : undefined}
             />
           )

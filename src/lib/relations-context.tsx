@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 
+import { tStatic } from '@/i18n/active';
 import { useAuth } from '@/lib/auth-context';
 import { decisionHaptic } from '@/lib/haptics';
 import {
@@ -104,7 +105,7 @@ export function RelationsProvider({ children }: { children: ReactNode }) {
       setLoaded({
         userId: forUser,
         sets: null,
-        error: e instanceof Error ? e.message : 'Could not load your settings.',
+        error: e instanceof Error ? e.message : tStatic('error.loadSettings'),
       });
       return null;
     }
@@ -122,7 +123,7 @@ export function RelationsProvider({ children }: { children: ReactNode }) {
           setLoaded({
             userId,
             sets: null,
-            error: e instanceof Error ? e.message : 'Could not load your settings.',
+            error: e instanceof Error ? e.message : tStatic('error.loadSettings'),
           });
         }
       });

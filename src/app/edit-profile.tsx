@@ -14,6 +14,7 @@ import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -26,6 +27,7 @@ const BIO_MAX = 160;
 export default function EditProfileScreen() {
   const { session, profile, refreshProfile } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
   const [username, setUsername] = useState(profile?.username ?? '');
   const [displayName, setDisplayName] = useState(profile?.display_name ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
@@ -34,7 +36,7 @@ export default function EditProfileScreen() {
 
   const usernameError =
     username.length > 0 && !USERNAME_PATTERN.test(username.trim().toLowerCase())
-      ? '3–20 characters: lowercase letters, numbers, underscores.'
+      ? t('signUp.usernameRule')
       : null;
   const canSave =
     !saving &&
@@ -46,7 +48,7 @@ export default function EditProfileScreen() {
       const picked = await pickImage({ square: true });
       if (picked) setNewAvatar(picked);
     } catch (e) {
-      Alert.alert('Could not open photos', errorMessage(e));
+      Alert.alert(t('create.photosFailed'), errorMessage(e));
     }
   };
 
@@ -67,7 +69,7 @@ export default function EditProfileScreen() {
       await refreshProfile();
       router.back();
     } catch (e) {
-      Alert.alert('Could not save profile', errorMessage(e));
+      Alert.alert(t('editProfile.failed'), errorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -85,20 +87,20 @@ export default function EditProfileScreen() {
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Change profile image"
+          accessibilityLabel={t('editProfile.changeImageA11y')}
           onPress={handlePickAvatar}
           style={({ pressed }) => [styles.avatarButton, pressed && styles.pressed]}
         >
           <Avatar
             url={newAvatar?.uri ?? profile?.avatar_url ?? null}
-            name={displayName || 'You'}
+            name={displayName || t('common.you')}
             size={96}
           />
-          <Text style={[styles.avatarHint, { color: colors.tint }]}>Change photo</Text>
+          <Text style={[styles.avatarHint, { color: colors.tint }]}>{t('editProfile.changePhoto')}</Text>
         </Pressable>
 
         <TextField
-          label="Username"
+          label={t('signUp.username')}
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
@@ -106,27 +108,27 @@ export default function EditProfileScreen() {
           error={usernameError}
         />
         <TextField
-          label="Display name"
+          label={t('signUp.displayName')}
           value={displayName}
           onChangeText={setDisplayName}
         />
         <TextField
-          label={`Bio (optional) · ${bio.length}/${BIO_MAX}`}
+          label={t('editProfile.bio', { n: bio.length, max: BIO_MAX })}
           value={bio}
           onChangeText={(t) => setBio(t.slice(0, BIO_MAX))}
           multiline
           style={styles.bioInput}
-          placeholder="A short line about you"
+          placeholder={t('editProfile.bioPlaceholder')}
         />
 
         <Button
-          title="Save"
+          title={t('common.save')}
           onPress={handleSave}
           disabled={!canSave}
           loading={saving}
           style={styles.save}
         />
-        <Button title="Cancel" variant="secondary" onPress={() => router.back()} />
+        <Button title={t('common.cancel')} variant="secondary" onPress={() => router.back()} />
 
       </ScrollView>
     </KeyboardAvoidingView>

@@ -2,6 +2,7 @@ import { decode } from 'base64-arraybuffer';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 
+import { tStatic } from '@/i18n/active';
 import { supabase } from '@/lib/supabase';
 
 export interface PickedImage {
@@ -18,7 +19,7 @@ interface PickImageOptions {
 async function requirePhotoAccess() {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!permission.granted) {
-    throw new Error('Photo library access is needed to attach an image.');
+    throw new Error(tStatic('error.photoAccess'));
   }
 }
 
@@ -88,7 +89,7 @@ async function prepareForUpload(
   });
   rendered.release();
   context.release();
-  if (!saved.base64) throw new Error('Could not read the selected image.');
+  if (!saved.base64) throw new Error(tStatic('error.imageRead'));
   return { uri: saved.uri, base64: saved.base64, mimeType: 'image/jpeg' };
 }
 
@@ -106,6 +107,6 @@ export async function uploadImage(
   const { error } = await supabase.storage
     .from(bucket)
     .upload(path, decode(image.base64), { contentType: image.mimeType });
-  if (error) throw new Error(`Image upload failed: ${error.message}`);
+  if (error) throw new Error(tStatic('error.imageUpload', { message: error.message }));
   return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
 }
