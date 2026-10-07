@@ -64,6 +64,9 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+-- The OUT columns share names with daily_prompts columns; inside SQL here,
+-- a bare name always means the table column.
+#variable_conflict use_column
 declare
   chosen uuid;
 begin

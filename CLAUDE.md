@@ -77,6 +77,44 @@ requires a new explicit instruction.
   (`profiles.terms_accepted_at`), in-app account deletion
   (`delete-account` Edge Function, from Edit profile), public Terms / Privacy pages
   (`src/constants/legal.ts`).
+- **Conversation phase** (authorized 2026-10-06, all shipped together):
+  - **Localization** — EN / JA app text through `src/i18n` (typed
+    dictionary, `useI18n()` / `useT()` in components, `tStatic` outside
+    React). Settings → Language: System / English / 日本語, persisted on the
+    device. User content is never translated by the app language; "See
+    translation" targets the app language. Intent names stay in English.
+  - **Replies** — one level: `comments.parent_comment_id` points only at a
+    root comment on the same post (trigger-enforced). Replying to a reply
+    flattens under the root and addresses the person. Deleting a root with
+    replies leaves a tombstone (`deleted_at`) via `delete_comment()`; the
+    tombstone goes when its last reply goes. No reply notifications.
+  - **Fork** — `posts.forked_from_post_id`, set null when the original is
+    deleted; the fork is an ordinary post that also lives in the feed.
+    Provenance ("Branched from @name") shows only while the original is
+    visible to the reader; `post_fork_meta()` runs as the reader. Fork is
+    not a repost, quote or disagreement button; no stance is recorded.
+  - **Daily Prompt** — `prompt_pool` (bilingual) + `daily_prompts` (one per
+    calendar date, deterministic choice via `daily_prompt_for()`), posts
+    may carry `daily_prompt_id`. A quiet offer in the composer; never
+    required, no streaks, no completion state.
+  - **Daily Prompt reminder** — the only notification. Default off; turned
+    on in Settings (permission asked only there); one push per device per
+    local day, body = the prompt in the app language, no badge, no sound,
+    no second reminder, nothing on a missed day. `push_devices` + the
+    `daily-prompt-notify` Edge Function (cron-secret guarded, idempotent).
+  - **Adjacent Diversity V1** — explainable neighbours only: same daily
+    prompt, same fork origin, direct branches (`lib/adjacent.ts`,
+    `services/adjacent.ts`). Self, subject and muted excluded (blocks by
+    RLS), not-followed preferred with followed as fallback, stable tiebreak,
+    no popularity inputs ever. Shown on post detail as "Another angle" /
+    "Same prompt, another answer" (≤ 2) and absent when empty. Mix it up's
+    outside slots take related posts first, then the Explore pool
+    (`mergeOutsidePool`), leaving the F F O pattern and cursors unchanged.
+    Semantic adjacency is a typed seam behind `SEMANTIC_ADJACENCY_ENABLED =
+    false`; no provider exists and nothing may fake a score.
+  - Still out of scope: search, trends, ranking, follower counts, DMs,
+    stories, social notifications (likes/replies/follows), streaks, private
+    accounts, ads, subscriptions, generative AI.
 
 ## Visual system (2026-09-16)
 
@@ -123,7 +161,14 @@ before writing code against unfamiliar Expo modules.
 - `src/services` — all database/storage calls. Screens never call `supabase` directly.
 - `src/components` — small reusable UI (button, text-field, avatar, post-card, message-state).
 - `src/constants/theme.ts` — neutral placeholder tokens; no branding yet.
-- `supabase/schema.sql` — full schema + RLS; the only source of truth for the database.
+- `supabase/schema.sql` — the schema as applied by hand up to 2026-09-16
+  (baseline). Everything after lives in `supabase/migrations/*.sql`, one
+  versioned, additive, production-safe file per change; never edit the
+  baseline or an applied migration, add a new file. `npm run test:db` applies
+  baseline + migrations to a throwaway local PostgreSQL and runs
+  `supabase/tests/db.test.sql`.
+- `src/i18n` — dictionary and provider. Every user-facing string, alert,
+  empty state and accessibility label goes through it, in both languages.
 
 ## Conventions
 
@@ -132,4 +177,5 @@ before writing code against unfamiliar Expo modules.
 - Secrets: only `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` via
   `.env` (gitignored). Never add the service_role key to this repo.
 - Destructive actions (delete post/comment) always confirm first.
-- Verify with `npx tsc --noEmit` and `npm run lint` before finishing a change.
+- Verify with `npx tsc --noEmit`, `npm run lint` and `npm test` before finishing
+  a change; `npm run test:db` when a migration changes.
