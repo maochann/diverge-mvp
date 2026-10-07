@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -24,6 +25,7 @@ import { useTheme } from '@/lib/theme';
 export default function ChangePasswordScreen() {
   const { updatePassword, recovering } = useAuth();
   const { colors } = useTheme();
+  const t = useT();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
@@ -36,11 +38,11 @@ export default function ChangePasswordScreen() {
     setSaving(true);
     try {
       await updatePassword(password);
-      Alert.alert('Password updated', 'Use your new password next time you log in.', [
-        { text: 'OK', onPress: () => router.replace('/') },
+      Alert.alert(t('changePassword.updatedTitle'), t('changePassword.updatedBody'), [
+        { text: t('common.ok'), onPress: () => router.replace('/') },
       ]);
     } catch (e) {
-      Alert.alert('Could not update password', errorMessage(e));
+      Alert.alert(t('changePassword.failed'), errorMessage(e));
     } finally {
       setSaving(false);
     }
@@ -54,33 +56,33 @@ export default function ChangePasswordScreen() {
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         {recovering ? (
           <Text style={[styles.intro, { color: colors.textSecondary }]}>
-            You&apos;re signed in through your reset link. Choose a new password to finish.
+            {t('changePassword.intro')}
           </Text>
         ) : null}
         <View style={styles.form}>
           <TextField
-            label="New password"
+            label={t('changePassword.new')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoComplete="new-password"
             textContentType="newPassword"
-            placeholder="At least 8 characters"
-            error={tooShort ? 'At least 8 characters.' : null}
+            placeholder={t('auth.passwordHint')}
+            error={tooShort ? t('auth.passwordRule') : null}
             autoFocus
           />
           <TextField
-            label="Confirm new password"
+            label={t('changePassword.confirm')}
             value={confirm}
             onChangeText={setConfirm}
             secureTextEntry
             autoComplete="new-password"
             textContentType="newPassword"
-            error={mismatch ? "Passwords don't match." : null}
+            error={mismatch ? t('changePassword.mismatch') : null}
           />
-          <Button title="Save password" onPress={handleSave} disabled={!canSave} loading={saving} />
+          <Button title={t('changePassword.submit')} onPress={handleSave} disabled={!canSave} loading={saving} />
           {recovering ? null : (
-            <Button title="Cancel" variant="secondary" onPress={() => router.back()} />
+            <Button title={t('common.cancel')} variant="secondary" onPress={() => router.back()} />
           )}
         </View>
       </ScrollView>

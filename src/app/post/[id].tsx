@@ -20,6 +20,7 @@ import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
 import { PostSkeleton } from '@/components/post-skeleton';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { timeAgo } from '@/lib/format';
 import { errorMessage } from '@/lib/supabase';
@@ -40,6 +41,7 @@ export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const { colors, scheme } = useTheme();
+  const { t, tp } = useI18n();
   const insets = useSafeAreaInsets();
   const userId = session?.user.id ?? '';
 
@@ -78,7 +80,7 @@ export default function PostDetailScreen() {
       await setLiked(current.id, userId, nextLiked);
     } catch (e) {
       setPost(current);
-      Alert.alert('Could not update like', errorMessage(e));
+      Alert.alert(t('feed.likeFailed'), errorMessage(e));
     }
   };
 
@@ -87,7 +89,7 @@ export default function PostDetailScreen() {
       await deletePost(current.id);
       router.back();
     } catch (e) {
-      Alert.alert('Could not delete post', errorMessage(e));
+      Alert.alert(t('feed.deleteFailed'), errorMessage(e));
     }
   };
 
@@ -101,17 +103,17 @@ export default function PostDetailScreen() {
       setComments(await fetchComments(id));
       setPost((p) => (p ? { ...p, comment_count: p.comment_count + 1 } : p));
     } catch (e) {
-      Alert.alert('Could not add comment', errorMessage(e));
+      Alert.alert(t('comments.addFailed'), errorMessage(e));
     } finally {
       setSending(false);
     }
   };
 
   const confirmDeleteComment = (comment: Comment) => {
-    Alert.alert('Delete comment?', 'This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('comments.deleteTitle'), t('comments.deleteBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('common.delete'),
         style: 'destructive',
         onPress: async () => {
           try {
@@ -119,7 +121,7 @@ export default function PostDetailScreen() {
             setComments((cur) => (cur ?? []).filter((c) => c.id !== comment.id));
             setPost((p) => (p ? { ...p, comment_count: Math.max(0, p.comment_count - 1) } : p));
           } catch (e) {
-            Alert.alert('Could not delete comment', errorMessage(e));
+            Alert.alert(t('comments.deleteFailed'), errorMessage(e));
           }
         },
       },
@@ -130,9 +132,9 @@ export default function PostDetailScreen() {
     return (
       <MessageState
         icon="cloud-offline-outline"
-        title="Couldn't load this post"
+        title={t('post.loadFailed')}
         detail={error}
-        actionTitle="Retry"
+        actionTitle={t('common.retry')}
         onAction={() => void load()}
       />
     );
@@ -174,7 +176,7 @@ export default function PostDetailScreen() {
             />
             {comments.length > 0 ? (
               <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-                {comments.length} {comments.length === 1 ? 'comment' : 'comments'}
+                {tp('comments.count', comments.length)}
               </Text>
             ) : null}
           </>
@@ -186,7 +188,7 @@ export default function PostDetailScreen() {
               accessibilityLabel={
                 item.user_id === userId
                   ? undefined
-                  : `Open ${item.author.display_name}'s profile`
+                  : t('common.openProfile', { name: item.author.display_name })
               }
               onPress={() => router.push(`/user/${item.user_id}`)}
               disabled={item.user_id === userId}
@@ -217,7 +219,7 @@ export default function PostDetailScreen() {
             {item.user_id === userId ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Delete comment"
+                accessibilityLabel={t('comments.deleteA11y')}
                 onPress={() => confirmDeleteComment(item)}
                 hitSlop={12}
                 style={({ pressed }) => [styles.commentDelete, pressed && styles.pressed]}
@@ -231,8 +233,8 @@ export default function PostDetailScreen() {
           <MessageState
             compact
             icon="chatbubble-ellipses-outline"
-            title="No comments yet"
-            detail="Be the first to reply."
+            title={t('comments.empty.title')}
+            detail={t('comments.empty.detail')}
           />
         }
       />
@@ -248,10 +250,10 @@ export default function PostDetailScreen() {
         ]}
       >
         <TextInput
-          accessibilityLabel="Write a comment"
+          accessibilityLabel={t('comments.writeA11y')}
           value={draft}
           onChangeText={(t) => setDraft(t.slice(0, MAX_COMMENT_LENGTH))}
-          placeholder="Write a comment…"
+          placeholder={t('comments.write')}
           placeholderTextColor={colors.textTertiary}
           keyboardAppearance={scheme}
           style={[
@@ -262,7 +264,7 @@ export default function PostDetailScreen() {
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Send comment"
+          accessibilityLabel={t('comments.send')}
           onPress={handleSend}
           disabled={!canSend}
           hitSlop={8}

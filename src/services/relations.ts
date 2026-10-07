@@ -1,3 +1,5 @@
+import { tStatic } from '@/i18n/active';
+import type { TranslationKey } from '@/i18n/translations';
 import { supabase } from '@/lib/supabase';
 import type { PostAuthor } from '@/types';
 
@@ -51,8 +53,8 @@ export async function fetchRelatedProfiles(
   return rows.map((row) => ({
     id: row[t.them],
     since: row.created_at,
-    username: row.profile?.username ?? 'unavailable',
-    display_name: row.profile?.display_name ?? 'Blocked account',
+    username: row.profile?.username ?? tStatic('relations.unavailable'),
+    display_name: row.profile?.display_name ?? tStatic('relations.blockedAccount'),
     avatar_url: row.profile?.avatar_url ?? null,
   }));
 }
@@ -100,11 +102,11 @@ export async function blockUser(targetId: string): Promise<void> {
 
 export type ReportReason = 'spam' | 'harassment' | 'inappropriate' | 'other';
 
-export const REPORT_REASONS: readonly { key: ReportReason; label: string }[] = [
-  { key: 'spam', label: 'Spam or misleading' },
-  { key: 'harassment', label: 'Harassment or bullying' },
-  { key: 'inappropriate', label: 'Inappropriate content' },
-  { key: 'other', label: 'Something else' },
+export const REPORT_REASONS: readonly { key: ReportReason; labelKey: TranslationKey }[] = [
+  { key: 'spam', labelKey: 'report.reason.spam' },
+  { key: 'harassment', labelKey: 'report.reason.harassment' },
+  { key: 'inappropriate', labelKey: 'report.reason.inappropriate' },
+  { key: 'other', labelKey: 'report.reason.other' },
 ];
 
 interface ReportInput {
@@ -140,5 +142,5 @@ export async function deleteMyAccount(): Promise<void> {
     { method: 'POST' },
   );
   if (error) throw new Error(error.message);
-  if (!data?.ok) throw new Error(data?.error ?? 'Could not delete the account.');
+  if (!data?.ok) throw new Error(data?.error ?? tStatic('error.deleteAccount'));
 }

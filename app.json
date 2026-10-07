@@ -47,7 +47,9 @@
         {
           "photosPermission": "Diverge uses your photo library only to attach photos you choose to your posts and profile."
         }
-      ]
+      ],
+      "expo-localization",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

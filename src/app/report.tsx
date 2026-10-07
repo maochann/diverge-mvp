@@ -15,6 +15,7 @@ import {
 
 import { Button } from '@/components/button';
 import { Radius, Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
@@ -33,11 +34,12 @@ export default function ReportScreen() {
   }>();
   const { session } = useAuth();
   const { colors, scheme } = useTheme();
+  const t = useT();
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const what = postId ? 'this post' : 'this account';
+  const what = postId ? t('report.thisPost') : t('report.thisAccount');
   const canSubmit = reason !== null && !submitting;
 
   const handleSubmit = async () => {
@@ -50,11 +52,11 @@ export default function ReportScreen() {
         reason,
         details: details.trim().length > 0 ? details.trim() : null,
       });
-      Alert.alert('Thanks for the report', "We'll look into it.", [
-        { text: 'OK', onPress: () => router.back() },
+      Alert.alert(t('report.thanksTitle'), t('report.thanksBody'), [
+        { text: t('common.ok'), onPress: () => router.back() },
       ]);
     } catch (e) {
-      Alert.alert('Could not send report', errorMessage(e));
+      Alert.alert(t('report.failed'), errorMessage(e));
     } finally {
       setSubmitting(false);
     }
@@ -67,7 +69,7 @@ export default function ReportScreen() {
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={[styles.question, { color: colors.text }]}>
-          What&apos;s wrong with {what}?
+          {t('report.question', { what })}
         </Text>
 
         <View accessibilityRole="radiogroup" style={styles.options}>
@@ -93,17 +95,17 @@ export default function ReportScreen() {
                   size={20}
                   color={active ? colors.tint : colors.textTertiary}
                 />
-                <Text style={[styles.optionLabel, { color: colors.text }]}>{option.label}</Text>
+                <Text style={[styles.optionLabel, { color: colors.text }]}>{t(option.labelKey)}</Text>
               </Pressable>
             );
           })}
         </View>
 
         <TextInput
-          accessibilityLabel="More details (optional)"
+          accessibilityLabel={t('report.detailsA11y')}
           value={details}
           onChangeText={(t) => setDetails(t.slice(0, MAX_DETAILS))}
-          placeholder="Anything else we should know? (optional)"
+          placeholder={t('report.detailsPlaceholder')}
           placeholderTextColor={colors.textTertiary}
           keyboardAppearance={scheme}
           multiline
@@ -114,12 +116,11 @@ export default function ReportScreen() {
         />
 
         <Text style={[styles.note, { color: colors.textTertiary }]}>
-          Reports are reviewed by the Diverge team. The person you report won&apos;t be
-          notified.
+          {t('report.note')}
         </Text>
 
-        <Button title="Send report" onPress={handleSubmit} disabled={!canSubmit} loading={submitting} />
-        <Button title="Cancel" variant="secondary" onPress={() => router.back()} />
+        <Button title={t('report.send')} onPress={handleSubmit} disabled={!canSubmit} loading={submitting} />
+        <Button title={t('common.cancel')} variant="secondary" onPress={() => router.back()} />
       </ScrollView>
     </KeyboardAvoidingView>
   );

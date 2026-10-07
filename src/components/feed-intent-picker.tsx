@@ -5,6 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withTiming } fr
 import { ForkLine } from '@/components/fork-line';
 import { FEED_INTENTS, type FeedIntent } from '@/constants/feed';
 import { Motion, Spacing, Type } from '@/constants/theme';
+import { useT } from '@/i18n';
 import { useTheme } from '@/lib/theme';
 
 interface FeedIntentPickerProps {
@@ -22,6 +23,7 @@ const MARK_WIDTH = 28;
  */
 export function FeedIntentPicker({ value, onChange }: FeedIntentPickerProps) {
   const { colors } = useTheme();
+  const t = useT();
   const [tabX, setTabX] = useState<Partial<Record<FeedIntent, number>>>({});
   const markX = useSharedValue(0);
   const markOpacity = useSharedValue(0);
@@ -52,16 +54,16 @@ export function FeedIntentPicker({ value, onChange }: FeedIntentPickerProps) {
     <View style={styles.container}>
       <View style={styles.tabs} accessibilityRole="tablist">
         {FEED_INTENTS.map((option) => {
-          const active = option.key === value;
+          const active = option === value;
           return (
             <Pressable
-              key={option.key}
+              key={option}
               accessibilityRole="tab"
               accessibilityState={{ selected: active }}
-              accessibilityLabel={option.label}
-              accessibilityHint={option.description}
-              onPress={() => onChange(option.key)}
-              onLayout={remember(option.key)}
+              accessibilityLabel={t(`intent.${option}.label`)}
+              accessibilityHint={t(`intent.${option}.description`)}
+              onPress={() => onChange(option)}
+              onLayout={remember(option)}
               hitSlop={6}
               style={({ pressed }) => [styles.tab, pressed && styles.pressed]}
             >
@@ -72,7 +74,7 @@ export function FeedIntentPicker({ value, onChange }: FeedIntentPickerProps) {
                   active && styles.labelActive,
                 ]}
               >
-                {option.label}
+                {t(`intent.${option}.label`)}
               </Text>
             </Pressable>
           );

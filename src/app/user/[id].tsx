@@ -9,6 +9,7 @@ import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
 import { PostSkeletonList } from '@/components/post-skeleton';
 import { Spacing, Type } from '@/constants/theme';
+import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
@@ -26,6 +27,7 @@ export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const { colors, scheme } = useTheme();
+  const { t, tp } = useI18n();
   const { isMuted, isBlocked, isPending, toggleMute, block } = useRelations();
   const viewerId = session?.user.id ?? '';
 
@@ -79,26 +81,26 @@ export default function UserProfileScreen() {
       await setLiked(post.id, viewerId, nextLiked);
     } catch (e) {
       setPosts((current) => (current ?? []).map((p) => (p.id === post.id ? post : p)));
-      Alert.alert('Could not update like', errorMessage(e));
+      Alert.alert(t('feed.likeFailed'), errorMessage(e));
     }
   };
 
   const confirmBlock = () => {
-    const name = profile?.display_name ?? 'this person';
+    const name = profile?.display_name ?? t('block.thisPerson');
     Alert.alert(
-      `Block ${name}?`,
-      "You won't see each other's posts, comments or profiles, and any follows between you are removed. They won't be told.",
+      t('block.title', { name }),
+      t('block.body'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Block',
+          text: t('block.confirm'),
           style: 'destructive',
           onPress: async () => {
             try {
               await block(id);
               router.back();
             } catch (e) {
-              Alert.alert('Could not block', errorMessage(e));
+              Alert.alert(t('block.failed'), errorMessage(e));
             }
           },
         },
@@ -110,7 +112,7 @@ export default function UserProfileScreen() {
     try {
       await toggleMute(id);
     } catch (e) {
-      Alert.alert('Could not update mute', errorMessage(e));
+      Alert.alert(t('user.muteFailed'), errorMessage(e));
     }
   };
 
@@ -118,14 +120,14 @@ export default function UserProfileScreen() {
   const openMenu = () => {
     const muted = isMuted(id);
     const actions: { label: string; destructive?: boolean; run: () => void }[] = [
-      { label: muted ? 'Unmute' : 'Mute', run: () => void handleMute() },
-      { label: 'Report', run: () => router.push(`/report?userId=${id}`) },
-      { label: 'Block', destructive: true, run: confirmBlock },
+      { label: muted ? t('user.unmute') : t('user.mute'), run: () => void handleMute() },
+      { label: t('user.report'), run: () => router.push(`/report?userId=${id}`) },
+      { label: t('user.block'), destructive: true, run: confirmBlock },
     ];
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: [...actions.map((a) => a.label), 'Cancel'],
+          options: [...actions.map((a) => a.label), t('common.cancel')],
           destructiveButtonIndex: actions.findIndex((a) => a.destructive),
           cancelButtonIndex: actions.length,
           userInterfaceStyle: scheme,
@@ -133,13 +135,13 @@ export default function UserProfileScreen() {
         (index) => actions[index]?.run(),
       );
     } else {
-      Alert.alert(profile?.display_name ?? 'Options', undefined, [
+      Alert.alert(profile?.display_name ?? t('user.options'), undefined, [
         ...actions.map((a) => ({
           text: a.label,
           style: a.destructive ? ('destructive' as const) : ('default' as const),
           onPress: a.run,
         })),
-        { text: 'Cancel', style: 'cancel' as const },
+        { text: t('common.cancel'), style: 'cancel' as const },
       ]);
     }
   };
@@ -156,13 +158,9 @@ export default function UserProfileScreen() {
         <Stack.Screen options={{ title: '' }} />
         <MessageState
           icon="eye-off-outline"
-          title="This profile isn't available"
-          detail={
-            isBlocked(id)
-              ? 'You blocked this account. You can unblock it from your Blocked list.'
-              : undefined
-          }
-          actionTitle={isBlocked(id) ? 'Go to Blocked list' : undefined}
+          title={t('user.unavailable')}
+          detail={isBlocked(id) ? t('user.blockedDetail') : undefined}
+          actionTitle={isBlocked(id) ? t('user.goToBlocked') : undefined}
           onAction={isBlocked(id) ? () => router.replace('/people/blocked') : undefined}
         />
       </>
@@ -173,9 +171,9 @@ export default function UserProfileScreen() {
     return (
       <MessageState
         icon="cloud-offline-outline"
-        title="Couldn't load this profile"
+        title={t('user.loadFailed')}
         detail={profileError}
-        actionTitle="Retry"
+        actionTitle={t('common.retry')}
         onAction={() => void loadProfile()}
       />
     );
@@ -186,8 +184,7 @@ export default function UserProfileScreen() {
   }
 
   const postCount = posts?.length ?? 0;
-  const countLabel =
-    posts === null ? '' : `${postCount} ${postCount === 1 ? 'post' : 'posts'}`;
+  const countLabel = posts === null ? '' : tp('profile.postCount', postCount);
 
   return (
     <>
@@ -197,7 +194,7 @@ export default function UserProfileScreen() {
           headerRight: () => (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="More options"
+              accessibilityLabel={t('common.moreOptions')}
               onPress={openMenu}
               disabled={isPending(id)}
               hitSlop={10}
@@ -236,13 +233,13 @@ export default function UserProfileScreen() {
             <View style={styles.metaRow}>
               <Text style={[styles.count, { color: colors.textSecondary }]}>
                 {countLabel}
-                {isMuted(profile.id) ? '  ·  Muted' : ''}
+                {isMuted(profile.id) ? `  ·  ${t('user.muted')}` : ''}
               </Text>
               <FollowButton userId={profile.id} />
             </View>
           </View>
           {posts && posts.length > 0 ? (
-            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>Posts</Text>
+            <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('profile.posts')}</Text>
           ) : null}
           </>
         }
@@ -261,9 +258,9 @@ export default function UserProfileScreen() {
             <MessageState
               compact
               icon="cloud-offline-outline"
-              title="Couldn't load their posts"
+              title={t('user.postsLoadFailed')}
               detail={postsError}
-              actionTitle="Retry"
+              actionTitle={t('common.retry')}
               onAction={() => void loadPosts()}
             />
           ) : posts === null ? (
@@ -272,8 +269,8 @@ export default function UserProfileScreen() {
             <MessageState
               compact
               icon="create-outline"
-              title="No posts yet"
-              detail={`${profile.display_name} hasn't posted anything.`}
+              title={t('user.noPosts.title')}
+              detail={t('user.noPosts.detail', { name: profile.display_name })}
             />
           )
         }
