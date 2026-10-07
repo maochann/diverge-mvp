@@ -30,7 +30,8 @@ create policy "Forks come from visible posts" on public.posts
   as restrictive for insert to authenticated
   with check (
     forked_from_post_id is null
-    or exists (select 1 from public.posts o where o.id = forked_from_post_id)
+    -- Qualified on purpose: unqualified, the name would bind to o's own column.
+    or exists (select 1 from public.posts o where o.id = posts.forked_from_post_id)
   );
 
 -- Provenance and branch counts for a set of posts, as the caller sees them:
