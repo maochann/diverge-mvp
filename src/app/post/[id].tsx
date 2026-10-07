@@ -16,12 +16,15 @@ import {
 import Animated, { FadeIn, FadeInUp, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AdjacentPosts } from '@/components/adjacent-posts';
 import { Avatar } from '@/components/avatar';
 import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
 import { PostSkeleton } from '@/components/post-skeleton';
 import { Motion, Radius, Spacing, Type } from '@/constants/theme';
 import { useI18n } from '@/i18n';
+import { ADJACENT_DETAIL_LIMIT } from '@/constants/feed';
+import { rankAdjacent, type AdjacentCandidate } from '@/lib/adjacent';
 import { useAuth } from '@/lib/auth-context';
 import {
   buildThreads,
@@ -33,7 +36,9 @@ import {
 } from '@/lib/comment-threads';
 import { timeAgo } from '@/lib/format';
 import { errorMessage } from '@/lib/supabase';
+import { useRelations } from '@/lib/relations-context';
 import { useTheme } from '@/lib/theme';
+import { fetchAdjacentForPost } from '@/services/adjacent';
 import {
   addComment,
   deleteComment,
@@ -190,10 +195,13 @@ export default function PostDetailScreen() {
   const { session } = useAuth();
   const { colors, scheme } = useTheme();
   const { t, tp } = useI18n();
+  const { sets } = useRelations();
   const insets = useSafeAreaInsets();
   const userId = session?.user.id ?? '';
 
   const [post, setPost] = useState<FeedPost | null>(null);
+  // Neighbours by explicit relation (same prompt, fork graph); null until looked up.
+  const [adjacentRaw, setAdjacentRaw] = useState<{ postId: string; items: AdjacentCandidate[] } | null>(null);
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -210,10 +218,25 @@ export default function PostDetailScreen() {
       setPost(p);
       setComments(c);
       setError(null);
+      // Best effort: the post stands on its own if this fails.
+      fetchAdjacentForPost(p, userId)
+        .then((items) => setAdjacentRaw({ postId: p.id, items }))
+        .catch(() => setAdjacentRaw({ postId: p.id, items: [] }));
     } catch (e) {
       setError(errorMessage(e));
     }
   }, [id, userId]);
+
+  const adjacent = useMemo(() => {
+    if (!adjacentRaw || adjacentRaw.postId !== id || !sets) return [];
+    return rankAdjacent(adjacentRaw.items, {
+      viewerId: userId,
+      subjectId: id,
+      following: sets.following,
+      muted: sets.muted,
+      limit: ADJACENT_DETAIL_LIMIT,
+    });
+  }, [adjacentRaw, id, sets, userId]);
 
   // Load on mount and refresh when the screen regains focus.
   useFocusEffect(
@@ -348,6 +371,7 @@ export default function PostDetailScreen() {
               onOpenAuthor={(uid) => router.push(`/user/${uid}`)}
               onAuthorBlocked={() => router.back()}
             />
+            <AdjacentPosts candidates={adjacent} />
             {commentTotal > 0 ? (
               <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
                 {tp('comments.count', commentTotal)}
