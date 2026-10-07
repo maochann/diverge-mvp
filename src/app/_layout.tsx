@@ -4,22 +4,53 @@ import {
   useFonts,
 } from '@expo-google-fonts/newsreader';
 import { useLinkingURL } from 'expo-linking';
+import * as Notifications from 'expo-notifications';
 import { Stack, ThemeProvider, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { LocaleProvider, useT } from '@/i18n';
+import { LocaleProvider, useT, type LanguagePreference, type Locale } from '@/i18n';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { syncReminderLanguage } from '@/lib/daily-prompt-reminder';
+import { reminderUrlFrom } from '@/services/notifications';
 import { RelationsProvider } from '@/lib/relations-context';
 import { Type } from '@/constants/theme';
 import { navigationTheme, useTheme } from '@/lib/theme';
+
+// A reminder arriving while the app is open shows as a quiet banner: no
+// sound, no badge. (The server never sets a badge either.)
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
 
 function RootNavigator() {
   const { session, initializing, completeRecovery, recovering } = useAuth();
   const { colors } = useTheme();
   const t = useT();
+
+  // Tapping the day's reminder opens the composer with the prompt selected.
+  // Only the reminder exists; any other notification is ignored.
+  const handledNotification = useRef<string | null>(null);
+  useEffect(() => {
+    if (!session) return;
+    const open = (response: Notifications.NotificationResponse | null) => {
+      const url = reminderUrlFrom(response);
+      const id = response?.notification.request.identifier ?? null;
+      if (!url || !id || id === handledNotification.current) return;
+      handledNotification.current = id;
+      router.navigate(url as never);
+    };
+    Notifications.getLastNotificationResponseAsync().then(open).catch(() => undefined);
+    const sub = Notifications.addNotificationResponseReceivedListener(open);
+    return () => sub.remove();
+  }, [session]);
 
   // Password-reset links open the app with a one-time code. Exchange it for
   // a session, then send the person straight to the new-password screen.
@@ -106,6 +137,19 @@ function RootNavigator() {
   );
 }
 
+/** The reminder is sent in the app language, so the server copy follows it. */
+function LocaleSync({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+  const onLocaleChange = useCallback(
+    (locale: Locale, _preference: LanguagePreference) => {
+      if (userId) void syncReminderLanguage(userId, locale);
+    },
+    [userId],
+  );
+  return <LocaleProvider onLocaleChange={onLocaleChange}>{children}</LocaleProvider>;
+}
+
 export default function RootLayout() {
   const theme = useTheme();
   // Navigation headers capture their title font once, so wait for the serif
@@ -116,13 +160,13 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.flex}>
       <ThemeProvider value={navigationTheme(theme)}>
         <StatusBar style="auto" />
-        <LocaleProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <LocaleSync>
             <RelationsProvider>
               <RootNavigator />
             </RelationsProvider>
-          </AuthProvider>
-        </LocaleProvider>
+          </LocaleSync>
+        </AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );
