@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import type { Comment, FeedPost, PostAuthor } from '@/types';
 
+// `comments(count)` is paired with `.is('comments.deleted_at', null)` on
+// every query so tombstones (deleted roots that still hold replies) don't count.
 const POST_FIELDS = `
   id, user_id, content, image_url, image_urls, created_at,
   author:profiles!posts_user_id_fkey ( username, display_name, avatar_url ),
@@ -84,6 +86,7 @@ export async function fetchFollowedChapter(
   let query = supabase
     .from('posts')
     .select(POST_FIELDS)
+    .is('comments.deleted_at', null)
     .in('user_id', [...authorIds])
     .lte('created_at', cutoff)
     .order('created_at', { ascending: false })
@@ -215,6 +218,7 @@ export async function fetchPostsByIds(
   const { data, error } = await supabase
     .from('posts')
     .select(POST_FIELDS)
+    .is('comments.deleted_at', null)
     .in('id', ids);
   if (error) throw new Error(error.message);
   return (data as unknown as PostRow[]).map((row) => toFeedPost(row, viewerId));
@@ -228,6 +232,7 @@ export async function fetchUserPosts(
   const { data, error } = await supabase
     .from('posts')
     .select(POST_FIELDS)
+    .is('comments.deleted_at', null)
     .eq('user_id', authorId)
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
@@ -241,6 +246,7 @@ export async function fetchPost(
   const { data, error } = await supabase
     .from('posts')
     .select(POST_FIELDS)
+    .is('comments.deleted_at', null)
     .eq('id', postId)
     .single();
   if (error) throw new Error(error.message);
@@ -297,11 +303,12 @@ export async function setLiked(
   }
 }
 
+/** Every comment and reply on a post (one thread's worth), oldest first. */
 export async function fetchComments(postId: string): Promise<Comment[]> {
   const { data, error } = await supabase
     .from('comments')
     .select(
-      `id, post_id, user_id, content, created_at,
+      `id, post_id, user_id, content, created_at, parent_comment_id, deleted_at,
        author:profiles!comments_user_id_fkey ( username, display_name, avatar_url )`,
     )
     .eq('post_id', postId)
@@ -310,18 +317,27 @@ export async function fetchComments(postId: string): Promise<Comment[]> {
   return data as unknown as Comment[];
 }
 
+/** Add a comment, or a reply when `parentCommentId` names a root comment. */
 export async function addComment(
   postId: string,
   userId: string,
   content: string,
+  parentCommentId: string | null = null,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('comments')
-    .insert({ post_id: postId, user_id: userId, content: content.trim() });
+  const { error } = await supabase.from('comments').insert({
+    post_id: postId,
+    user_id: userId,
+    content: content.trim(),
+    parent_comment_id: parentCommentId,
+  });
   if (error) throw new Error(error.message);
 }
 
+/**
+ * Delete your own comment or reply. The database decides whether a root
+ * comment with replies becomes a tombstone (so the replies stay) or goes.
+ */
 export async function deleteComment(commentId: string): Promise<void> {
-  const { error } = await supabase.from('comments').delete().eq('id', commentId);
+  const { error } = await supabase.rpc('delete_comment', { p_id: commentId });
   if (error) throw new Error(error.message);
 }
