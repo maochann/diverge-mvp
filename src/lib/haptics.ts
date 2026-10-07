@@ -17,3 +17,11 @@ export function decisionHaptic(): void {
 export function selectionHaptic(): void {
   Haptics.selectionAsync().catch(() => undefined);
 }
+
+/**
+ * A touch heavier than a decision: publishing a fork, where a thought is
+ * taken somewhere new. Still a single, short impact.
+ */
+export function successHaptic(): void {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+}

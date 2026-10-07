@@ -114,6 +114,8 @@ export default function ExplorePersonSheet() {
             onOpenComments={(p) => goTo(`/post/${p.id}`)}
             onDelete={() => undefined}
             onAuthorBlocked={() => router.back()}
+            onFork={(p) => goTo(`/create?forkFrom=${p.id}`)}
+            onOpenOrigin={(originId) => goTo(`/post/${originId}`)}
           />
         </>
       ) : (

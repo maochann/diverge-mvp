@@ -13,6 +13,22 @@ export interface PostAuthor {
   avatar_url: string | null;
 }
 
+/** The post a fork branched from, as far as the reader is allowed to see it. */
+export interface ForkOrigin {
+  id: string;
+  user_id: string;
+  username: string;
+  display_name: string;
+}
+
+/** The day's prompt a post answered. Text in both languages; the UI picks one. */
+export interface DailyPromptRef {
+  id: string;
+  prompt_date: string;
+  text_en: string;
+  text_ja: string;
+}
+
 /** A post as shown in the feed, with aggregates derived at query time. */
 export interface FeedPost {
   id: string;
@@ -27,6 +43,14 @@ export interface FeedPost {
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;
+  /** Set when this post branched from another (even if that one is now hidden). */
+  forked_from_post_id: string | null;
+  /** The original, when the reader can see it; null if deleted or blocked. */
+  forked_from: ForkOrigin | null;
+  /** Posts that branched from this one, counting only those the reader can see. */
+  branch_count: number;
+  /** The daily prompt this post answered, if any. */
+  daily_prompt: DailyPromptRef | null;
 }
 
 export interface Comment {

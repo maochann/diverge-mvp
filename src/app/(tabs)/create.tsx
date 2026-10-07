@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,31 +13,100 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { Button } from '@/components/button';
-import { ImageRatio, Radius, Spacing, Type } from '@/constants/theme';
-import { useT } from '@/i18n';
+import { ForkLine } from '@/components/fork-line';
+import { ImageRatio, Motion, Radius, Spacing, Type } from '@/constants/theme';
+import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
-import { decisionHaptic } from '@/lib/haptics';
+import { decisionHaptic, successHaptic } from '@/lib/haptics';
 import { errorMessage } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme';
-import { createPost } from '@/services/posts';
+import { createPost, fetchPost } from '@/services/posts';
+import { fetchDailyPrompt } from '@/services/prompts';
 import { pickImages, uploadImage, type PickedImage } from '@/services/storage';
+import type { DailyPromptRef, FeedPost } from '@/types';
 
 const MAX_LENGTH = 500;
 const MAX_PHOTOS = 4;
 
+type ForkState = { status: 'loading' } | { status: 'ready'; post: FeedPost } | { status: 'unavailable' };
+
+/**
+ * New post. Two optional starting points sit above the text, both quiet and
+ * both dismissable: the day's prompt (one small reason to write), and the
+ * post this one branches from (a Fork). Neither is required to post.
+ */
 export default function CreatePostScreen() {
+  const { forkFrom, prompt: promptParam } = useLocalSearchParams<{
+    forkFrom?: string;
+    prompt?: string;
+  }>();
   const { session } = useAuth();
   const { colors, scheme } = useTheme();
-  const t = useT();
+  const { t, locale } = useI18n();
+  const userId = session?.user.id ?? '';
+
   const [content, setContent] = useState('');
   const [images, setImages] = useState<PickedImage[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
-  const canSubmit = content.trim().length > 0 && !submitting;
+  const [forkLoaded, setForkLoaded] = useState<{ id: string; state: ForkState } | null>(null);
+  const [prompt, setPrompt] = useState<DailyPromptRef | null>(null);
+  // Null until the writer decides; a notification tap pre-selects the prompt.
+  const [promptChoice, setPromptChoice] = useState<boolean | null>(null);
+
+  const forkId = forkFrom && forkFrom.length > 0 ? forkFrom : null;
+  // Derived, so a stale load for a different original never shows.
+  const fork: ForkState | null = forkId
+    ? forkLoaded?.id === forkId
+      ? forkLoaded.state
+      : { status: 'loading' }
+    : null;
+  const usePrompt = promptChoice ?? promptParam === 'today';
+
+  // The original of a fork, as far as the writer can see it.
+  useEffect(() => {
+    if (!forkId) return;
+    let cancelled = false;
+    fetchPost(forkId, userId)
+      .then((post) => {
+        if (!cancelled) setForkLoaded({ id: forkId, state: { status: 'ready', post } });
+      })
+      .catch(() => {
+        if (!cancelled) setForkLoaded({ id: forkId, state: { status: 'unavailable' } });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [forkId, userId]);
+
+  // Today's prompt, fetched each time the tab is opened (it changes at midnight).
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      fetchDailyPrompt()
+        .then((p) => {
+          if (!cancelled) setPrompt(p);
+        })
+        .catch(() => {
+          // The prompt is an offer, not a requirement; posting works without it.
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  const clearStartingPoints = useCallback(() => {
+    router.setParams({ forkFrom: '', prompt: '' });
+  }, []);
+
+  const canSubmit = content.trim().length > 0 && !submitting && fork?.status !== 'loading';
   const nearLimit = content.length > MAX_LENGTH - 50;
+  const promptText = prompt ? (locale === 'ja' ? prompt.text_ja : prompt.text_en) : null;
 
   const handlePickImages = async () => {
     const room = MAX_PHOTOS - images.length;
@@ -64,10 +133,18 @@ export default function CreatePostScreen() {
         imageUrls.push(await uploadImage('post-images', session.user.id, image));
       }
       setUploadProgress(null);
-      const postId = await createPost(session.user.id, content, imageUrls);
-      decisionHaptic();
+      const forkedFromPostId = fork?.status === 'ready' ? fork.post.id : null;
+      const postId = await createPost(session.user.id, content, imageUrls, {
+        forkedFromPostId,
+        dailyPromptId: usePrompt && prompt ? prompt.id : null,
+      });
+      // Taking a thought somewhere new is a slightly bigger moment than a post.
+      if (forkedFromPostId) successHaptic();
+      else decisionHaptic();
       setContent('');
       setImages([]);
+      setPromptChoice(null);
+      clearStartingPoints();
       // Show the new post itself so the writer sees it landed. Own posts
       // don't appear in Catch up (that's for people you follow), so go via
       // the Feed tab: Back from the post returns to the feed session as it was.
@@ -92,11 +169,78 @@ export default function CreatePostScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
       >
+        {promptText && prompt ? (
+          <View style={[styles.prompt, { borderColor: colors.border }]}>
+            <View style={styles.promptHeader}>
+              <Text style={[styles.promptLabel, { color: colors.textTertiary }]}>
+                {usePrompt ? t('prompt.using') : t('prompt.title')}
+              </Text>
+              {usePrompt ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('prompt.removeA11y')}
+                  onPress={() => setPromptChoice(false)}
+                  hitSlop={10}
+                  style={({ pressed }) => [pressed && styles.pressed]}
+                >
+                  <Ionicons name="close" size={18} color={colors.textSecondary} />
+                </Pressable>
+              ) : null}
+            </View>
+            <Text style={[styles.promptText, { color: colors.text }]}>“{promptText}”</Text>
+            {usePrompt ? null : (
+              <Button
+                title={t('prompt.use')}
+                variant="outline"
+                compact
+                onPress={() => setPromptChoice(true)}
+                style={styles.promptButton}
+              />
+            )}
+          </View>
+        ) : null}
+
+        {fork ? (
+          <Animated.View
+            entering={FadeIn.duration(Motion.base)}
+            exiting={FadeOut.duration(Motion.fast)}
+            style={[styles.fork, { borderColor: colors.border }]}
+          >
+            <View style={styles.forkHeader}>
+              <ForkLine width={20} color={colors.tint} />
+              <Text style={[styles.forkLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                {fork.status === 'ready'
+                  ? t('fork.composerFrom', { username: fork.post.author.username })
+                  : fork.status === 'loading'
+                    ? ''
+                    : t('fork.composerUnavailable')}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('fork.removeA11y')}
+                onPress={clearStartingPoints}
+                hitSlop={10}
+                style={({ pressed }) => [pressed && styles.pressed]}
+              >
+                <Ionicons name="close" size={18} color={colors.textSecondary} />
+              </Pressable>
+            </View>
+            {fork.status === 'ready' ? (
+              <>
+                <Text style={[styles.forkExcerpt, { color: colors.textSecondary }]} numberOfLines={3}>
+                  {fork.post.content}
+                </Text>
+                <Text style={[styles.forkTitle, { color: colors.text }]}>{t('fork.composerTitle')}</Text>
+              </>
+            ) : null}
+          </Animated.View>
+        ) : null}
+
         <TextInput
           accessibilityLabel={t('create.textA11y')}
           value={content}
-          onChangeText={(t) => setContent(t.slice(0, MAX_LENGTH))}
-          placeholder={t('create.placeholder')}
+          onChangeText={(v) => setContent(v.slice(0, MAX_LENGTH))}
+          placeholder={fork?.status === 'ready' ? t('fork.placeholder') : t('create.placeholder')}
           placeholderTextColor={colors.textTertiary}
           keyboardAppearance={scheme}
           multiline
@@ -177,6 +321,53 @@ const styles = StyleSheet.create({
   container: {
     padding: Spacing.lg,
     gap: Spacing.lg,
+  },
+  prompt: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    gap: Spacing.sm,
+  },
+  promptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 20,
+  },
+  promptLabel: {
+    ...Type.captionStrong,
+    letterSpacing: 0.3,
+  },
+  promptText: {
+    ...Type.chapter,
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  promptButton: {
+    marginTop: Spacing.xs,
+  },
+  fork: {
+    borderLeftWidth: 1,
+    paddingLeft: Spacing.md,
+    gap: Spacing.xs,
+  },
+  forkHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    minHeight: 24,
+  },
+  forkLabel: {
+    ...Type.caption,
+    flex: 1,
+  },
+  forkExcerpt: Type.caption,
+  forkTitle: {
+    ...Type.chapter,
+    fontSize: 18,
+    lineHeight: 24,
+    marginTop: Spacing.xs,
   },
   textArea: {
     ...Type.body,
