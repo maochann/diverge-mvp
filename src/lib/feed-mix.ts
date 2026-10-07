@@ -41,3 +41,32 @@ export function composeMixChapter<F, O>(
 
   return { items, usedFollowed: useFollowed, usedOutside: useOutside };
 }
+
+/**
+ * Where an outside post in a Mix chapter came from: an Adjacent candidate
+ * (related by prompt or fork to a followed post in the chapter) or the
+ * people-balanced Explore pool. Adjacent posts take the outside slots first;
+ * the Explore pool fills whatever is left, so the fixed F F O pattern and
+ * the Explore cursor both stay exactly as they were.
+ */
+export type OutsideSource<P, E> = { source: 'adjacent'; post: P } | { source: 'explore'; item: E };
+
+export function mergeOutsidePool<P extends { id: string }, E extends { post: { id: string } }>(
+  adjacent: readonly P[],
+  explore: readonly E[],
+  seen: ReadonlySet<string>,
+): OutsideSource<P, E>[] {
+  const taken = new Set<string>();
+  const pool: OutsideSource<P, E>[] = [];
+  for (const post of adjacent) {
+    if (seen.has(post.id) || taken.has(post.id)) continue;
+    taken.add(post.id);
+    pool.push({ source: 'adjacent', post });
+  }
+  for (const item of explore) {
+    if (seen.has(item.post.id) || taken.has(item.post.id)) continue;
+    taken.add(item.post.id);
+    pool.push({ source: 'explore', item });
+  }
+  return pool;
+}
