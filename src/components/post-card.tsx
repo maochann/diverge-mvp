@@ -5,6 +5,7 @@ import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } fr
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/avatar';
+import { ForkLine } from '@/components/fork-line';
 import { PostImages } from '@/components/post-images';
 import { Motion, Spacing, Type } from '@/constants/theme';
 import { useI18n } from '@/i18n';
@@ -39,6 +40,10 @@ interface PostCardProps {
    * it means once); 'circle' shows nothing.
    */
   origin?: 'circle' | 'beyond';
+  /** Open the composer to branch from this post. Defaults to the Post tab. */
+  onFork?: (post: FeedPost) => void;
+  /** Open the post this one branched from. Defaults to its detail screen. */
+  onOpenOrigin?: (originId: string) => void;
 }
 
 /** The outline heart stays; the filled one soaks in over it like ink. */
@@ -76,9 +81,11 @@ export function PostCard({
   onOpenAuthor,
   onAuthorBlocked,
   origin = 'circle',
+  onFork,
+  onOpenOrigin,
 }: PostCardProps) {
   const { colors, scheme } = useTheme();
-  const { t, locale } = useI18n();
+  const { t, tp, locale } = useI18n();
   const { block, isPending } = useRelations();
   const authorTappable = !isOwn && onOpenAuthor !== undefined;
 
@@ -112,6 +119,24 @@ export function PostCard({
   };
   // Posts cached before multi-photo shipped may lack the array.
   const images = post.image_urls ?? [];
+  // Provenance is shown only while the original is visible to this reader.
+  const forkOrigin = post.forked_from ?? null;
+  const promptText = post.daily_prompt
+    ? locale === 'ja'
+      ? post.daily_prompt.text_ja
+      : post.daily_prompt.text_en
+    : null;
+
+  const openOrigin = () => {
+    if (!forkOrigin) return;
+    if (onOpenOrigin) onOpenOrigin(forkOrigin.id);
+    else router.push(`/post/${forkOrigin.id}`);
+  };
+
+  const fork = () => {
+    if (onFork) onFork(post);
+    else router.push({ pathname: '/create', params: { forkFrom: post.id } });
+  };
 
   const confirmBlock = () => {
     Alert.alert(
@@ -203,6 +228,26 @@ export function PostCard({
         </Text>
       </View>
 
+      {forkOrigin ? (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={t('fork.branchedFromA11y', { username: forkOrigin.username })}
+          onPress={openOrigin}
+          hitSlop={6}
+          style={({ pressed }) => [styles.provenance, pressed && styles.pressed]}
+        >
+          <ForkLine width={16} color={colors.textTertiary} />
+          <Text style={[styles.provenanceText, { color: colors.textSecondary }]} numberOfLines={1}>
+            {t('fork.branchedFrom', { username: forkOrigin.username })}
+          </Text>
+        </Pressable>
+      ) : null}
+      {promptText ? (
+        <Text style={[styles.promptLine, { color: colors.textTertiary }]} numberOfLines={2}>
+          {t('prompt.provenance')} · “{promptText}”
+        </Text>
+      ) : null}
+
       <Text style={[styles.content, { color: colors.text }]}>
         {showTranslation && translation !== null ? translation : post.content}
       </Text>
@@ -259,6 +304,24 @@ export function PostCard({
             </Text>
           </Pressable>
         ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            post.branch_count > 0
+              ? `${t('fork.actionA11y')}. ${tp('fork.branches', post.branch_count)}`
+              : t('fork.actionA11y')
+          }
+          onPress={fork}
+          hitSlop={8}
+          style={({ pressed }) => [styles.action, pressed && styles.pressed]}
+        >
+          <Ionicons name="git-branch-outline" size={20} color={colors.textTertiary} />
+          {post.branch_count > 0 ? (
+            <Text style={[styles.actionCount, { color: colors.textTertiary }]}>
+              {post.branch_count}
+            </Text>
+          ) : null}
+        </Pressable>
         <View style={styles.spacer} />
         {isOwn ? (
           <Pressable
@@ -325,6 +388,19 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   content: Type.body,
+  provenance: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    alignSelf: 'flex-start',
+    minHeight: 24,
+    marginBottom: -2,
+  },
+  provenanceText: Type.caption,
+  promptLine: {
+    ...Type.caption,
+    marginBottom: -2,
+  },
   translateLink: {
     alignSelf: 'flex-start',
     marginTop: -4,

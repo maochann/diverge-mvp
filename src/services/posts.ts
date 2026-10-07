@@ -1,13 +1,14 @@
 import { supabase } from '@/lib/supabase';
-import type { Comment, FeedPost, PostAuthor } from '@/types';
+import type { Comment, DailyPromptRef, FeedPost, ForkOrigin, PostAuthor } from '@/types';
 
 // `comments(count)` is paired with `.is('comments.deleted_at', null)` on
 // every query so tombstones (deleted roots that still hold replies) don't count.
 const POST_FIELDS = `
-  id, user_id, content, image_url, image_urls, created_at,
+  id, user_id, content, image_url, image_urls, created_at, forked_from_post_id,
   author:profiles!posts_user_id_fkey ( username, display_name, avatar_url ),
   likes ( user_id ),
-  comments ( count )
+  comments ( count ),
+  daily_prompt:daily_prompts ( id, prompt_date, prompt:prompt_pool ( text_en, text_ja ) )
 `;
 
 interface PostRow {
@@ -17,12 +18,69 @@ interface PostRow {
   image_url: string | null;
   image_urls: string[] | null;
   created_at: string;
+  forked_from_post_id: string | null;
   author: PostAuthor;
   likes: { user_id: string }[];
   comments: { count: number }[];
+  daily_prompt: {
+    id: string;
+    prompt_date: string;
+    prompt: { text_en: string; text_ja: string } | null;
+  } | null;
 }
 
-function toFeedPost(row: PostRow, viewerId: string): FeedPost {
+interface ForkMetaRow {
+  post_id: string;
+  origin_id: string | null;
+  origin_user_id: string | null;
+  origin_username: string | null;
+  origin_display_name: string | null;
+  branch_count: number;
+}
+
+interface ForkMeta {
+  origin: ForkOrigin | null;
+  branchCount: number;
+}
+
+/**
+ * Where each post branched from and how many branches it has, as the reader
+ * is allowed to see them (the database function runs as the reader, so a
+ * blocked or deleted original is simply absent). One round trip per page.
+ */
+async function fetchForkMeta(ids: string[]): Promise<Map<string, ForkMeta>> {
+  const meta = new Map<string, ForkMeta>();
+  if (ids.length === 0) return meta;
+  const { data, error } = await supabase.rpc('post_fork_meta', { p_ids: ids });
+  if (error) throw new Error(error.message);
+  for (const row of (data ?? []) as ForkMetaRow[]) {
+    meta.set(row.post_id, {
+      origin:
+        row.origin_id && row.origin_user_id && row.origin_username && row.origin_display_name
+          ? {
+              id: row.origin_id,
+              user_id: row.origin_user_id,
+              username: row.origin_username,
+              display_name: row.origin_display_name,
+            }
+          : null,
+      branchCount: row.branch_count,
+    });
+  }
+  return meta;
+}
+
+function toDailyPrompt(row: PostRow['daily_prompt']): DailyPromptRef | null {
+  if (!row || !row.prompt) return null;
+  return {
+    id: row.id,
+    prompt_date: row.prompt_date,
+    text_en: row.prompt.text_en,
+    text_ja: row.prompt.text_ja,
+  };
+}
+
+function toFeedPost(row: PostRow, viewerId: string, fork: ForkMeta | undefined): FeedPost {
   return {
     id: row.id,
     user_id: row.user_id,
@@ -40,7 +98,17 @@ function toFeedPost(row: PostRow, viewerId: string): FeedPost {
     like_count: row.likes.length,
     comment_count: row.comments[0]?.count ?? 0,
     liked_by_me: row.likes.some((l) => l.user_id === viewerId),
+    forked_from_post_id: row.forked_from_post_id,
+    forked_from: fork?.origin ?? null,
+    branch_count: fork?.branchCount ?? 0,
+    daily_prompt: toDailyPrompt(row.daily_prompt),
   };
+}
+
+/** Rows from any post query, with their fork provenance attached. */
+async function hydrate(rows: PostRow[], viewerId: string): Promise<FeedPost[]> {
+  const fork = await fetchForkMeta(rows.map((r) => r.id));
+  return rows.map((row) => toFeedPost(row, viewerId, fork.get(row.id)));
 }
 
 /** Position in a chronological feed: the last post the reader has seen. */
@@ -108,7 +176,7 @@ export async function fetchFollowedChapter(
   const page = rows.slice(0, limit);
   const last = page[page.length - 1];
   return {
-    posts: page.map((row) => toFeedPost(row, viewerId)),
+    posts: await hydrate(page, viewerId),
     hasMore: rows.length > limit,
     nextCursor: last ? { created_at: last.created_at, id: last.id } : null,
   };
@@ -221,7 +289,7 @@ export async function fetchPostsByIds(
     .is('comments.deleted_at', null)
     .in('id', ids);
   if (error) throw new Error(error.message);
-  return (data as unknown as PostRow[]).map((row) => toFeedPost(row, viewerId));
+  return hydrate(data as unknown as PostRow[], viewerId);
 }
 
 /** One user's posts, newest first. Used for the "my posts" list on the profile. */
@@ -236,7 +304,7 @@ export async function fetchUserPosts(
     .eq('user_id', authorId)
     .order('created_at', { ascending: false });
   if (error) throw new Error(error.message);
-  return (data as unknown as PostRow[]).map((row) => toFeedPost(row, viewerId));
+  return hydrate(data as unknown as PostRow[], viewerId);
 }
 
 export async function fetchPost(
@@ -250,7 +318,15 @@ export async function fetchPost(
     .eq('id', postId)
     .single();
   if (error) throw new Error(error.message);
-  return toFeedPost(data as unknown as PostRow, viewerId);
+  const [post] = await hydrate([data as unknown as PostRow], viewerId);
+  return post;
+}
+
+export interface CreatePostOptions {
+  /** The post this one branches from (a Fork). */
+  forkedFromPostId?: string | null;
+  /** The day's prompt this post answers. */
+  dailyPromptId?: string | null;
 }
 
 /** Creates the post and returns its id so the caller can open it. */
@@ -258,6 +334,7 @@ export async function createPost(
   userId: string,
   content: string,
   imageUrls: string[],
+  { forkedFromPostId = null, dailyPromptId = null }: CreatePostOptions = {},
 ): Promise<string> {
   const { data, error } = await supabase
     .from('posts')
@@ -266,6 +343,8 @@ export async function createPost(
       content: content.trim(),
       image_url: imageUrls[0] ?? null,
       image_urls: imageUrls,
+      forked_from_post_id: forkedFromPostId,
+      daily_prompt_id: dailyPromptId,
     })
     .select('id')
     .single();
