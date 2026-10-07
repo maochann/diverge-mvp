@@ -35,5 +35,9 @@ export interface Comment {
   user_id: string;
   content: string;
   created_at: string;
+  /** Null for a root comment; the root's id for a reply (one level only). */
+  parent_comment_id: string | null;
+  /** Set when a root comment with replies was deleted (a tombstone). */
+  deleted_at: string | null;
   author: PostAuthor;
 }
