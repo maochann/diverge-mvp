@@ -6,6 +6,8 @@ is independent of the app build.
 
 ## 1. Database migrations (required before shipping this build)
 
+**Done 2026-10-08** via the SQL editor; verified: 60 prompts, 5 functions, new columns and tables present, `daily_prompt_for(current_date)` returns a row.
+
 The app now expects the objects created by the four files in
 `supabase/migrations/`. Until they are applied, every post query in the new
 build fails (it calls `post_fork_meta` and embeds `daily_prompts`), so apply
