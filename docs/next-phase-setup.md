@@ -52,6 +52,8 @@ select proname from pg_proc where proname in ('delete_comment','post_fork_meta',
 
 ## 2. Edge Function for the Daily Prompt reminder
 
+**Secret set 2026-10-08** (`DAILY_PROMPT_CRON_SECRET`, copy kept in `~/Documents/diverge-secrets.txt`, mode 600, not in git). The deploy itself must run from a terminal where `npx supabase login` was done (CLI 2.120 keeps the token in a per-terminal profile).
+
 ```bash
 cd ~/Projects/diverge-mvp
 npx supabase functions deploy daily-prompt-notify --project-ref mvpjyfigicxviowffhvj --no-verify-jwt
@@ -70,6 +72,8 @@ npx supabase secrets set EXPO_ACCESS_TOKEN="<token from expo.dev → Account →
 ```
 
 ## 3. Scheduler (pg_cron + pg_net)
+
+**Done 2026-10-08**: extensions enabled, job `daily-prompt-notify` (jobid 1) runs `*/10 * * * *`. Until the function is deployed each tick gets a 404, which is harmless.
 
 Dashboard → Database → Extensions: enable `pg_cron` and `pg_net`. Then in
 the SQL editor (replace the two placeholders):
