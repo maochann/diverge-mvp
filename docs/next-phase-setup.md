@@ -128,6 +128,8 @@ npx --yes eas-cli@latest build --platform ios --profile production --auto-submit
 
 ## 6. Privacy policy (recommended, not blocking)
 
+**Done 2026-10-08**: `privacy.html` in Kyle1-2-3/diverge-legal updated (reminder data, replies, fork provenance, DeepL and Expo as processors, Settings paths; last-updated date bumped). App Store Connect → App Privacy still needs "Device ID" added (App Functionality, not linked, not tracking) before the next submission.
+
 The reminder stores an Expo push token, platform, time zone, app language
 and the preferred time per device, only when the person turns the reminder
 on. The current policy at https://kyle1-2-3.github.io/diverge-legal/privacy.html
