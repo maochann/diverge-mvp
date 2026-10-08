@@ -52,7 +52,7 @@ select proname from pg_proc where proname in ('delete_comment','post_fork_meta',
 
 ## 2. Edge Function for the Daily Prompt reminder
 
-**Secret set 2026-10-08** (`DAILY_PROMPT_CRON_SECRET`, copy kept in `~/Documents/diverge-secrets.txt`, mode 600, not in git). The deploy itself must run from a terminal where `npx supabase login` was done (CLI 2.120 keeps the token in a per-terminal profile).
+**Secret set 2026-10-08** (`DAILY_PROMPT_CRON_SECRET`, copy kept in `~/Documents/diverge-secrets.txt`, mode 600, not in git). **Deployed 2026-10-08** (v1, verify_jwt off). Checked: no secret → 403 `forbidden`; with secret → `{ok:true, checked:0, …}`. Note: the CLI reads its login from the macOS keychain, so the first deploy asks for the Mac login password ("Always Allow").
 
 ```bash
 cd ~/Projects/diverge-mvp
