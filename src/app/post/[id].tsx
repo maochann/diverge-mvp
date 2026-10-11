@@ -509,7 +509,6 @@ const styles = StyleSheet.create({
   commentText: Type.body,
   commentDeleted: {
     ...Type.body,
-    fontStyle: 'italic',
     flex: 1,
   },
   commentActions: {
