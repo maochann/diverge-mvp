@@ -27,7 +27,7 @@ import {
   type ExploreSession,
 } from '@/lib/explore-session';
 import { timeAgo } from '@/lib/format';
-import { useTheme } from '@/lib/theme';
+import { useSerif, useTheme } from '@/lib/theme';
 import type { Profile } from '@/types';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -77,6 +77,7 @@ export function ExploreCanvas({
 }: ExploreCanvasProps) {
   const { colors } = useTheme();
   const { t, tp } = useI18n();
+  const serif = useSerif();
   const reducedMotion = useReducedMotion();
   const [box, setBox] = useState({ width: 0, height: 0 });
   const [asList, setAsList] = useState(false);
@@ -157,7 +158,7 @@ export function ExploreCanvas({
   const footer = complete ? (
     <View style={styles.ending}>
       <EndingRule color={colors.textTertiary} />
-      <Text style={[styles.endingTitle, { color: colors.text }]}>
+      <Text style={[styles.endingTitle, serif.regular, { color: colors.text }]}>
         {session.round === 1 ? t('explore.everyoneRound1') : t('explore.everyoneAgain')}
       </Text>
       {more ? (

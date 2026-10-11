@@ -9,12 +9,13 @@ import { Spacing, Type } from '@/constants/theme';
 import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
-import { useTheme } from '@/lib/theme';
+import { useSerif, useTheme } from '@/lib/theme';
 
 export default function ForgotPasswordScreen() {
   const { requestPasswordReset, verifyRecoveryCode } = useAuth();
   const { colors } = useTheme();
   const t = useT();
+  const serif = useSerif();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +56,7 @@ export default function ForgotPasswordScreen() {
       >
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.heading}>
-            <Text style={[styles.title, { color: colors.text }]}>{t('forgot.title')}</Text>
+            <Text style={[styles.title, serif.strong, { color: colors.text }]}>{t('forgot.title')}</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               {sent ? t('forgot.introSent', { email: email.trim() }) : t('forgot.intro')}
             </Text>
