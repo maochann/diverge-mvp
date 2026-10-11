@@ -22,7 +22,7 @@ import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { decisionHaptic, successHaptic } from '@/lib/haptics';
 import { errorMessage } from '@/lib/supabase';
-import { useTheme } from '@/lib/theme';
+import { useSerif, useTheme } from '@/lib/theme';
 import { createPost, fetchPost } from '@/services/posts';
 import { fetchDailyPrompt } from '@/services/prompts';
 import { pickImages, uploadImage, type PickedImage } from '@/services/storage';
@@ -46,6 +46,7 @@ export default function CreatePostScreen() {
   const { session } = useAuth();
   const { colors, scheme } = useTheme();
   const { t, locale } = useI18n();
+  const serif = useSerif();
   const userId = session?.user.id ?? '';
 
   const [content, setContent] = useState('');
@@ -187,7 +188,7 @@ export default function CreatePostScreen() {
                 </Pressable>
               ) : null}
             </View>
-            <Text style={[styles.promptText, { color: colors.text }]}>“{promptText}”</Text>
+            <Text style={[styles.promptText, serif.regular, { color: colors.text }]}>“{promptText}”</Text>
             {usePrompt ? null : (
               <Button
                 title={t('prompt.use')}
@@ -230,7 +231,7 @@ export default function CreatePostScreen() {
                 <Text style={[styles.forkExcerpt, { color: colors.textSecondary }]} numberOfLines={3}>
                   {fork.post.content}
                 </Text>
-                <Text style={[styles.forkTitle, { color: colors.text }]}>{t('fork.composerTitle')}</Text>
+                <Text style={[styles.forkTitle, serif.regular, { color: colors.text }]}>{t('fork.composerTitle')}</Text>
               </>
             ) : null}
           </Animated.View>

@@ -21,7 +21,7 @@ import { Spacing, Type } from '@/constants/theme';
 import { useT } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { errorMessage } from '@/lib/supabase';
-import { useTheme } from '@/lib/theme';
+import { useSerif, useTheme } from '@/lib/theme';
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 
@@ -29,6 +29,7 @@ export default function SignUpScreen() {
   const { signUp } = useAuth();
   const { colors } = useTheme();
   const t = useT();
+  const serif = useSerif();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -80,7 +81,7 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.heading}>
-            <Text style={[styles.title, { color: colors.text }]}>{t('signUp.title')}</Text>
+            <Text style={[styles.title, serif.strong, { color: colors.text }]}>{t('signUp.title')}</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               {t('signUp.subtitle')}
             </Text>

@@ -17,7 +17,7 @@ import { syncReminderLanguage } from '@/lib/daily-prompt-reminder';
 import { reminderUrlFrom } from '@/services/notifications';
 import { RelationsProvider } from '@/lib/relations-context';
 import { Type } from '@/constants/theme';
-import { navigationTheme, useTheme } from '@/lib/theme';
+import { navigationTheme, useSerif, useTheme } from '@/lib/theme';
 
 // A reminder arriving while the app is open shows as a quiet banner: no
 // sound, no badge. (The server never sets a badge either.)
@@ -34,6 +34,7 @@ function RootNavigator() {
   const { session, initializing, completeRecovery, recovering } = useAuth();
   const { colors } = useTheme();
   const t = useT();
+  const serif = useSerif();
 
   // Tapping the day's reminder opens the composer with the prompt selected.
   // Only the reminder exists; any other notification is ignored.
@@ -86,7 +87,7 @@ function RootNavigator() {
     <Stack
       screenOptions={{
         headerTintColor: colors.tint,
-        headerTitleStyle: { ...Type.title, fontSize: 20, color: colors.text },
+        headerTitleStyle: { ...Type.title, ...serif.strong, fontSize: 20, color: colors.text },
         headerShadowVisible: false,
         contentStyle: { backgroundColor: colors.background },
       }}

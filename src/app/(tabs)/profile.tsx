@@ -13,7 +13,7 @@ import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
-import { useTheme } from '@/lib/theme';
+import { useSerif, useTheme } from '@/lib/theme';
 import { deletePost, fetchUserPosts, setLiked } from '@/services/posts';
 import type { FeedPost } from '@/types';
 
@@ -22,6 +22,7 @@ export default function ProfileScreen() {
   const { sets } = useRelations();
   const { colors } = useTheme();
   const { t, tp } = useI18n();
+  const serif = useSerif();
   const userId = session?.user.id ?? '';
 
   const [posts, setPosts] = useState<FeedPost[] | null>(null);
@@ -113,7 +114,7 @@ export default function ProfileScreen() {
           <View style={styles.identity}>
             <Avatar url={profile.avatar_url} name={profile.display_name} size={64} />
             <View style={styles.names}>
-              <Text style={[styles.displayName, { color: colors.text }]} numberOfLines={2}>
+              <Text style={[styles.displayName, serif.strong, { color: colors.text }]} numberOfLines={2}>
                 {profile.display_name}
               </Text>
               <Text style={[styles.username, { color: colors.textSecondary }]}>
@@ -152,7 +153,7 @@ export default function ProfileScreen() {
           </View>
         </View>
         {posts && posts.length > 0 ? (
-          <Text style={[styles.sectionLabel, { color: colors.textSecondary }]}>{t('profile.posts')}</Text>
+          <Text style={[styles.sectionLabel, serif.regular, { color: colors.textSecondary }]}>{t('profile.posts')}</Text>
         ) : null}
         </>
       }

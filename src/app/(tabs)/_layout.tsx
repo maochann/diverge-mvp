@@ -6,7 +6,7 @@ import { ForkLine } from '@/components/fork-line';
 import { Motion, Type } from '@/constants/theme';
 import { useT } from '@/i18n';
 import { selectionHaptic } from '@/lib/haptics';
-import { useTheme } from '@/lib/theme';
+import { useSerif, useTheme } from '@/lib/theme';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -33,6 +33,7 @@ function TabIcon({
 export default function TabsLayout() {
   const { colors } = useTheme();
   const t = useT();
+  const serif = useSerif();
   return (
     <Tabs
       // Moving between the three places is a small change of scene: a short
@@ -50,7 +51,7 @@ export default function TabsLayout() {
         tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
         headerStyle: { backgroundColor: colors.background },
-        headerTitleStyle: { ...Type.title, fontSize: 22, color: colors.text },
+        headerTitleStyle: { ...Type.title, ...serif.strong, fontSize: 22, color: colors.text },
         headerTitleAlign: 'left',
         headerShadowVisible: false,
         headerTintColor: colors.text,

@@ -12,7 +12,7 @@ import { Button } from '@/components/button';
 import { ForkLine } from '@/components/fork-line';
 import { Spacing, Type } from '@/constants/theme';
 import { useI18n } from '@/i18n';
-import { useTheme } from '@/lib/theme';
+import { useSerif, useTheme } from '@/lib/theme';
 
 type ChapterEndProps =
   | {
@@ -50,6 +50,7 @@ function EndingRule({ color }: { color: string }) {
 export function ChapterEnd(props: ChapterEndProps) {
   const { colors } = useTheme();
   const { t, tp } = useI18n();
+  const serif = useSerif();
   const { height } = useWindowDimensions();
   const minHeight = Math.round(height * 0.55);
 
@@ -57,7 +58,7 @@ export function ChapterEnd(props: ChapterEndProps) {
     return (
       <View style={[styles.card, { minHeight }]}>
         <EndingRule color={colors.textTertiary} />
-        <Text style={[styles.title, { color: colors.text }]}>{t('chapter.caughtUp')}</Text>
+        <Text style={[styles.title, serif.strong, { color: colors.text }]}>{t('chapter.caughtUp')}</Text>
         <Text style={[styles.detail, { color: colors.textSecondary }]}>
           {t('chapter.nothingNew')}
         </Text>
@@ -74,7 +75,7 @@ export function ChapterEnd(props: ChapterEndProps) {
         <ForkLine width={36} color={colors.textTertiary} />
         <View style={[styles.rule, { backgroundColor: colors.border }]} />
       </View>
-      <Text style={[styles.title, { color: colors.text }]}>{t('chapter.end', { n: chapter })}</Text>
+      <Text style={[styles.title, serif.strong, { color: colors.text }]}>{t('chapter.end', { n: chapter })}</Text>
       <Text style={[styles.detail, { color: colors.textSecondary }]}>
         {tp('chapter.posts', postCount)} · {tp('chapter.people', peopleCount)}
       </Text>
