@@ -114,6 +114,10 @@ function RootNavigator() {
             headerShown: false,
           }}
         />
+        <Stack.Screen
+          name="compose"
+          options={{ title: t('tab.newPost'), presentation: 'modal', headerBackVisible: false, gestureEnabled: false }}
+        />
         <Stack.Screen name="settings" options={{ title: t('nav.settings'), headerBackTitle: t('common.back') }} />
         <Stack.Screen name="language" options={{ title: t('nav.language'), headerBackTitle: t('common.back') }} />
         <Stack.Screen

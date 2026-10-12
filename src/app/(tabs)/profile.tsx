@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
@@ -11,6 +12,7 @@ import { PostSkeletonList } from '@/components/post-skeleton';
 import { Spacing, Type } from '@/constants/theme';
 import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
+import { rememberTab } from '@/lib/last-tab';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
 import { useSerif, useTheme } from '@/lib/theme';
@@ -23,6 +25,7 @@ export default function ProfileScreen() {
   const { colors } = useTheme();
   const { t, tp } = useI18n();
   const serif = useSerif();
+  const insets = useSafeAreaInsets();
   const userId = session?.user.id ?? '';
 
   const [posts, setPosts] = useState<FeedPost[] | null>(null);
@@ -41,6 +44,7 @@ export default function ProfileScreen() {
   // Refresh on focus so profile edits and new posts show immediately.
   useFocusEffect(
     useCallback(() => {
+      rememberTab('/profile');
       refreshProfile().catch(() => {
         // Falls through to the "couldn't load" state below when profile is null.
       });
@@ -110,7 +114,18 @@ export default function ProfileScreen() {
       onRefresh={handleRefresh}
       ListHeaderComponent={
         <>
-        <View style={[styles.headerBlock, { borderBottomColor: colors.border }]}>
+        <View style={[styles.headerBlock, { borderBottomColor: colors.border, paddingTop: insets.top + Spacing.sm }]}>
+          <View style={styles.topRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('nav.settings')}
+              onPress={() => router.push('/settings')}
+              hitSlop={10}
+              style={({ pressed }) => [styles.settingsButton, pressed && styles.pressed]}
+            >
+              <Ionicons name="settings-outline" size={22} color={colors.text} />
+            </Pressable>
+          </View>
           <View style={styles.identity}>
             <Avatar url={profile.avatar_url} name={profile.display_name} size={64} />
             <View style={styles.names}>
@@ -185,7 +200,7 @@ export default function ProfileScreen() {
             title={t('profile.empty.title')}
             detail={t('profile.empty.detail')}
             actionTitle={t('profile.createPost')}
-            onAction={() => router.navigate('/create')}
+            onAction={() => router.push('/compose')}
           />
         )
       }
@@ -199,10 +214,20 @@ const styles = StyleSheet.create({
   },
   headerBlock: {
     paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
     paddingBottom: Spacing.md,
     gap: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    minHeight: 32,
+  },
+  settingsButton: {
+    minWidth: 44,
+    minHeight: 32,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   identity: {
     flexDirection: 'row',

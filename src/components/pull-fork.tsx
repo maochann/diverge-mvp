@@ -28,6 +28,8 @@ interface PullForkProps {
   progress: SharedValue<number>;
   refreshing: boolean;
   color: string;
+  /** Distance from the top of the list's container (the safe area, when there is no header). */
+  top?: number;
 }
 
 /**
@@ -35,7 +37,7 @@ interface PullForkProps {
  * itself; once released past the threshold it breathes until the new
  * session arrives. No spinner — the same mark as everywhere the feed branches.
  */
-export function PullFork({ progress, refreshing, color }: PullForkProps) {
+export function PullFork({ progress, refreshing, color, top = 0 }: PullForkProps) {
   // When the pull commits, the fork stretches sideways and vanishes: the
   // branch has been taken. 0 = at rest, 1 = fully stretched and gone.
   const release = useSharedValue(0);
@@ -69,7 +71,7 @@ export function PullFork({ progress, refreshing, color }: PullForkProps) {
 
   return (
     <Animated.View
-      style={[styles.container, containerStyle]}
+      style={[styles.container, { top: top + 8 }, containerStyle]}
       pointerEvents="none"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
@@ -95,7 +97,6 @@ export function PullFork({ progress, refreshing, color }: PullForkProps) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 8,
     left: 0,
     right: 0,
     alignItems: 'center',

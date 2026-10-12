@@ -127,5 +127,8 @@ export async function removePushDevice(token: string): Promise<void> {
 /** The deep link carried by a reminder, if the tapped notification was one. */
 export function reminderUrlFrom(response: Notifications.NotificationResponse | null): string | null {
   const url = response?.notification.request.content.data?.url;
-  return typeof url === 'string' && url.startsWith('/create') ? url : null;
+  if (typeof url !== 'string') return null;
+  // Older reminders pointed at the tab; the composer is a sheet now.
+  if (url.startsWith('/create')) return url.replace('/create', '/compose');
+  return url.startsWith('/compose') ? url : null;
 }

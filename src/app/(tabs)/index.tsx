@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, StyleSheet } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   FadeIn,
   FadeInUp,
@@ -23,7 +24,7 @@ import {
   MIX_OUTSIDE_COUNT,
   type FeedIntent,
 } from '@/constants/feed';
-import { Motion } from '@/constants/theme';
+import { Motion, Spacing } from '@/constants/theme';
 import { useT, type Translate } from '@/i18n';
 import {
   markSeen,
@@ -34,6 +35,7 @@ import {
 } from '@/lib/explore-session';
 import { useFeedIntent } from '@/lib/feed-intent';
 import { decisionHaptic } from '@/lib/haptics';
+import { rememberTab } from '@/lib/last-tab';
 import { composeMixChapter, mergeOutsidePool, type OutsideSource } from '@/lib/feed-mix';
 import { rankAdjacent } from '@/lib/adjacent';
 import { fetchAdjacentForChapter } from '@/services/adjacent';
@@ -222,6 +224,7 @@ export default function FeedScreen() {
   const { session: auth, profile } = useAuth();
   const { colors } = useTheme();
   const t = useT();
+  const insets = useSafeAreaInsets();
   const userId = auth?.user.id ?? '';
   const { intent, setIntent, ready: intentReady } = useFeedIntent(userId);
   const { sets, loadError: followError, reload: reloadRelations } = useRelations();
@@ -381,6 +384,7 @@ export default function FeedScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      rememberTab('/');
       if (!canStart) return;
       if (sessionRef.current === null) {
         void startSession(intent);
@@ -600,6 +604,9 @@ export default function FeedScreen() {
     setSession((s) => (s && s.intent === 'explore' ? nextRound(s) : s));
   };
 
+  // The screen has no title bar: the intent picker is the top of the page.
+  const top = { paddingTop: insets.top + Spacing.sm };
+
   // Catch up and Mix can't be built without knowing who you follow. Never
   // fall back to "everyone": that would quietly undo the reader's choice.
   if (intent !== 'explore' && following === null && followError !== null) {
@@ -615,7 +622,11 @@ export default function FeedScreen() {
   }
 
   if (session === null && initialError === null) {
-    return <PostSkeletonList />;
+    return (
+      <View style={[styles.list, top]}>
+        <PostSkeletonList />
+      </View>
+    );
   }
 
   if (session === null) {
@@ -634,7 +645,7 @@ export default function FeedScreen() {
     if (session.people.length === 0) {
       const othersCount = session.othersCount;
       return (
-        <>
+        <View style={[styles.list, top]}>
           <FeedIntentPicker value={intent} onChange={handleIntentChange} />
           {othersCount === 0 ? (
             <MessageState
@@ -657,11 +668,11 @@ export default function FeedScreen() {
               onAction={() => void handleRefresh()}
             />
           )}
-        </>
+        </View>
       );
     }
     return (
-      <>
+      <View style={[styles.list, top]}>
         <FeedIntentPicker value={intent} onChange={handleIntentChange} />
         <Animated.View
           key={sessionKey}
@@ -676,7 +687,7 @@ export default function FeedScreen() {
             onNextRound={handleNextRound}
           />
         </Animated.View>
-      </>
+      </View>
     );
   }
 
@@ -743,9 +754,9 @@ export default function FeedScreen() {
     <Animated.View
       key={sessionKey}
       entering={FadeInUp.duration(Motion.base).withInitialValues({ transform: [{ translateY: 4 }] })}
-      style={styles.list}
+      style={[styles.list, top]}
     >
-    <PullFork progress={pull} refreshing={refreshing} color={colors.tint} />
+    <PullFork progress={pull} refreshing={refreshing} color={colors.tint} top={insets.top + Spacing.sm} />
     <Animated.FlatList
       style={[styles.list, { backgroundColor: colors.background }]}
       data={rows}

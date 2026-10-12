@@ -135,7 +135,7 @@ export function PostCard({
 
   const fork = () => {
     if (onFork) onFork(post);
-    else router.push({ pathname: '/create', params: { forkFrom: post.id } });
+    else router.push({ pathname: '/compose', params: { forkFrom: post.id } });
   };
 
   const confirmBlock = () => {
