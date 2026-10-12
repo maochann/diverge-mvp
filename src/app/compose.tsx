@@ -105,9 +105,13 @@ export default function ComposeScreen() {
     }, []),
   );
 
-  /** Close the sheet and land on the place the reader came from. */
+  /**
+   * Close the sheet. The Post tab underneath regains focus and sends the
+   * reader back to the place they came from (see (tabs)/create.tsx).
+   */
   const close = useCallback(() => {
-    router.navigate(lastTab());
+    if (router.canDismiss()) router.dismiss();
+    else router.navigate(lastTab());
   }, []);
 
   const canSubmit = content.trim().length > 0 && !submitting && fork?.status !== 'loading';
@@ -150,11 +154,9 @@ export default function ComposeScreen() {
       setContent('');
       setImages([]);
       setPromptChoice(null);
-      // Show the new post itself so the writer sees it landed. Own posts
-      // don't appear in Catch up (that's for people you follow), so go via
-      // the Feed tab: Back from the post returns to the feed session as it was.
-      router.navigate('/');
-      router.push(`/post/${postId}`);
+      // The sheet becomes the new post's detail, so the writer sees it
+      // landed; Back from there returns to the place they came from.
+      router.replace(`/post/${postId}`);
     } catch (e) {
       Alert.alert(t('create.publishFailed'), errorMessage(e));
     } finally {
