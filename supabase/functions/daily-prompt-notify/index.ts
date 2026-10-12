@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
         to: device.expo_push_token,
         title: 'Diverge',
         body: notificationBody(prompt, device.app_language),
-        data: { url: '/create?prompt=today' },
+        data: { url: '/compose?prompt=today' },
         priority: 'default',
       },
     });

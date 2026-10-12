@@ -1,119 +1,32 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs, router } from 'expo-router';
-import { Pressable, StyleSheet, View, type ColorValue } from 'react-native';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 
-import { ForkLine } from '@/components/fork-line';
-import { Motion, Type } from '@/constants/theme';
 import { useT } from '@/i18n';
-import { selectionHaptic } from '@/lib/haptics';
-import { useSerif, useTheme } from '@/lib/theme';
+import { useTheme } from '@/lib/theme';
 
-type IconName = keyof typeof Ionicons.glyphMap;
-
-/** Outline icon with the fork mark underneath when selected. */
-function TabIcon({
-  name,
-  color,
-  focused,
-}: {
-  name: IconName;
-  color: ColorValue;
-  focused: boolean;
-}) {
-  return (
-    <View style={styles.tabIcon}>
-      <Ionicons name={name} size={22} color={color} />
-      <View style={styles.tabMark}>
-        {focused ? <ForkLine width={20} color={String(color)} /> : null}
-      </View>
-    </View>
-  );
-}
-
+/**
+ * The system tab bar (Liquid Glass on iOS 26: a floating pill that
+ * recedes as you scroll, drawn by the OS). Three places, as before, but the
+ * screens carry no title bar of their own; what you see is the content.
+ * The Post tab is a doorway: its screen immediately raises the composer
+ * as a sheet (see create.tsx) so writing never replaces the place you were.
+ */
 export default function TabsLayout() {
   const { colors } = useTheme();
   const t = useT();
-  const serif = useSerif();
   return (
-    <Tabs
-      // Moving between the three places is a small change of scene: a short
-      // fade, and the system's selection tick under the finger. ('shift'
-      // sometimes left the incoming scene invisible, so it stays off.)
-      screenListeners={{ tabPress: () => selectionHaptic() }}
-      screenOptions={{
-        animation: 'fade',
-        transitionSpec: {
-          animation: 'timing',
-          config: { duration: Motion.fast },
-        },
-        tabBarActiveTintColor: colors.tint,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
-        headerStyle: { backgroundColor: colors.background },
-        headerTitleStyle: { ...Type.title, ...serif.strong, fontSize: 22, color: colors.text },
-        headerTitleAlign: 'left',
-        headerShadowVisible: false,
-        headerTintColor: colors.text,
-        sceneStyle: { backgroundColor: colors.background },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t('tab.feed'),
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="book-outline" color={color} focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="create"
-        options={{
-          title: t('tab.post'),
-          headerTitle: t('tab.newPost'),
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="create-outline" color={color} focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: t('tab.profile'),
-          headerRight: () => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('nav.settings')}
-              onPress={() => router.push('/settings')}
-              hitSlop={10}
-              style={({ pressed }) => [styles.headerButton, pressed && styles.pressed]}
-            >
-              <Ionicons name="settings-outline" size={22} color={colors.text} />
-            </Pressable>
-          ),
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="person-outline" color={color} focused={focused} />
-          ),
-        }}
-      />
-    </Tabs>
+    <NativeTabs minimizeBehavior="onScrollDown" tintColor={colors.tint}>
+      <NativeTabs.Trigger name="index">
+        <NativeTabs.Trigger.Icon sf={{ default: 'book', selected: 'book.fill' }} />
+        <NativeTabs.Trigger.Label>{t('tab.feed')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="create" disableScrollToTop>
+        <NativeTabs.Trigger.Icon sf="square.and.pencil" />
+        <NativeTabs.Trigger.Label>{t('tab.post')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="profile">
+        <NativeTabs.Trigger.Icon sf={{ default: 'person', selected: 'person.fill' }} />
+        <NativeTabs.Trigger.Label>{t('tab.profile')}</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+    </NativeTabs>
   );
 }
-
-const styles = StyleSheet.create({
-  tabIcon: {
-    alignItems: 'center',
-  },
-  tabMark: {
-    height: 8,
-    marginTop: 1,
-    justifyContent: 'flex-end',
-  },
-  headerButton: {
-    paddingHorizontal: 12,
-  },
-  pressed: {
-    opacity: 0.6,
-  },
-});
