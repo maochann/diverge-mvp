@@ -134,3 +134,4 @@ Command: `xcrun simctl io booted screenshot <file>.png`.
   https://apps.apple.com/us/app/diverge-feed/id6809689660
 - 2026-10-11: Version 1.1 (build 12, 1.1.0) submitted for App Review (status 審査待ち). Changes: EN/JA localization, replies, Fork, daily prompt + opt-in reminder, Another angle, system Liquid Glass tab bar, composer as a sheet. URLs moved to maochann.github.io/diverge-legal; App Privacy gained Device ID (app functionality, linked, no tracking). Builds 11 and 12 are both in TestFlight; 12 is the one under review.
 - 2026-10-13: Version 1.1 (build 12) APPROVED — status 配信準備完了 (Ready for Distribution); released automatically on the unlisted link.
+- 2026-10-21: Daily prompt reminder verified on a real iPhone (one notification at the chosen time, tap opens the composer with the prompt selected). PHP2Shell (CVE-2026-109618/109619) checked: no PHP anywhere in Diverge (RN + Supabase/Deno) or the legal pages (static GitHub Pages); nothing to patch.
