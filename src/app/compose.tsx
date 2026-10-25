@@ -232,15 +232,25 @@ export default function ComposeScreen() {
                 </Pressable>
               ) : null}
             </View>
-            <Text style={[styles.promptText, serif.regular, { color: colors.text }]}>“{promptText}”</Text>
+            <Text style={[styles.promptText, serif.regular, { color: colors.text }]}>{promptText}</Text>
             {usePrompt ? null : (
-              <Button
-                title={t('prompt.use')}
-                variant="outline"
-                compact
-                onPress={() => setPromptChoice(true)}
-                style={styles.promptButton}
-              />
+              <View style={styles.promptActions}>
+                <Button
+                  title={t('prompt.use')}
+                  variant="outline"
+                  compact
+                  onPress={() => setPromptChoice(true)}
+                />
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={t('prompt.roomA11y')}
+                  onPress={() => router.push(`/prompt/${prompt.id}`)}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.promptRoom, pressed && styles.pressed]}
+                >
+                  <Text style={[styles.promptRoomText, { color: colors.tint }]}>{t('prompt.room')}</Text>
+                </Pressable>
+              </View>
             )}
           </View>
         ) : null}
@@ -386,9 +396,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 24,
   },
-  promptButton: {
+  promptActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
     marginTop: Spacing.xs,
   },
+  promptRoom: {
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  promptRoomText: Type.captionStrong,
   fork: {
     borderLeftWidth: 1,
     paddingLeft: Spacing.md,

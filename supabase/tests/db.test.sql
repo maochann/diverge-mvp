@@ -187,8 +187,8 @@ declare
   a uuid := '00000000-0000-0000-0000-00000000000a';
   d1 record; d1b record; d2 record; n int; err text; p uuid;
 begin
-  select count(*) into n from prompt_pool where active;
-  perform test.check(n >= 60, '60 bilingual prompts seeded: ' || n);
+  select count(*) into n from prompt_pool;
+  perform test.check(n >= 60, 'the original 60 prompts are still present: ' || n);
   perform test.check((select count(*) from prompt_pool where text_ja = '' or text_en = '') = 0, 'every prompt has both languages');
 
   perform test.as_user(a);
@@ -291,6 +291,81 @@ begin
   delete from auth.users where id = b;
   select count(*) into n from push_devices where expo_push_token = tok;
   perform test.check(n = 0, 'push device is removed with the account');
+end $$;
+
+-- ------------------------------------------------------------- reactions
+do $$
+declare
+  a uuid := '00000000-0000-0000-0000-00000000000a';
+  c uuid := '00000000-0000-0000-0000-00000000000c';
+  d uuid := '00000000-0000-0000-0000-00000000000d';
+  e uuid := '00000000-0000-0000-0000-00000000000e';
+  p uuid; n int; err text;
+begin
+  perform test.as_admin();
+  insert into auth.users (id, email, raw_user_meta_data)
+  values (e, 'e@test', '{"username":"eve","display_name":"Eve"}');
+
+  perform test.as_user(a);
+  insert into posts (user_id, content) values (a, 'reacted post') returning id into p;
+
+  perform test.as_user(c);
+  insert into reactions (post_id, user_id, kind) values (p, c, 'relate');
+  perform test.as_user(d);
+  insert into reactions (post_id, user_id, kind) values (p, d, 'learned');
+  err := test.fails(format('insert into reactions (post_id, user_id, kind) values (%L, %L, %L)', p, d, 'wow'));
+  perform test.check(err is not null, 'only the three fixed words are accepted');
+
+  -- One word per person: changing it is an update, not a second row.
+  update reactions set kind = 'differs' where post_id = p and user_id = d;
+  select count(*) into n from reactions where post_id = p and user_id = d;
+  perform test.check(n = 1 and (select kind from reactions where post_id = p and user_id = d) = 'differs', 'a reader can change their word');
+
+  -- Readers see only their own word.
+  select count(*) into n from reactions where post_id = p;
+  perform test.check(n = 1, 'a reader sees only their own reaction');
+  perform test.as_user(e);
+  select count(*) into n from reactions where post_id = p;
+  perform test.check(n = 0, 'someone who did not react sees nothing');
+
+  -- The author sees everyone's.
+  perform test.as_user(a);
+  select count(*) into n from reactions where post_id = p;
+  perform test.check(n = 2, 'the author sees every reaction on their post');
+  err := test.fails(format('insert into reactions (post_id, user_id, kind) values (%L, %L, %L)', p, a, 'relate'));
+  perform test.check(err is not null, 'cannot react to your own post');
+  err := test.fails(format('insert into reactions (post_id, user_id, kind) values (%L, %L, %L)', p, c, 'relate'));
+  perform test.check(err is not null, 'cannot react as someone else');
+
+  -- A block hides the reaction from the author.
+  perform public.block_user(d);
+  select count(*) into n from reactions where post_id = p;
+  perform test.check(n = 1, 'a blocked reader''s word is hidden from the author');
+  perform test.as_admin();
+  delete from blocks where blocker_id = a and blocked_id = d;
+
+  -- Deleting the post takes the reactions with it.
+  perform test.as_user(a);
+  delete from posts where id = p;
+  perform test.as_admin();
+  select count(*) into n from reactions where post_id = p;
+  perform test.check(n = 0, 'reactions go with the post');
+end $$;
+
+-- --------------------------------------------------------- simple prompts
+do $$
+declare n int; dp record;
+begin
+  select count(*) into n from prompt_pool where active and key like 's\_%';
+  perform test.check(n = 45, '45 simple prompts active: ' || n);
+  select count(*) into n from prompt_pool where active and key not like 's\_%';
+  perform test.check(n = 0, 'old prompts deactivated, not deleted');
+  select count(*) into n from prompt_pool where not active;
+  perform test.check(n = 60, 'old prompts still exist for past posts: ' || n);
+  perform test.as_user('00000000-0000-0000-0000-00000000000c');
+  select * into dp from public.daily_prompt_for(current_date + 2);
+  perform test.check((select key from prompt_pool where id = dp.prompt_id) like 's\_%', 'new days pick only from the simple set');
+  perform test.as_admin();
 end $$;
 
 -- ------------------------------------------------------- account deletion

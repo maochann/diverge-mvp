@@ -1,14 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Avatar } from '@/components/avatar';
+import { ReactionControl } from '@/components/reaction-control';
 import { ForkLine } from '@/components/fork-line';
 import { PostImages } from '@/components/post-images';
-import { Motion, Spacing, Type } from '@/constants/theme';
+import { Spacing, Type } from '@/constants/theme';
+import { REACTION_KINDS, type ReactionKind } from '@/constants/reactions';
 import { useI18n } from '@/i18n';
+import { useAuth } from '@/lib/auth-context';
 import { timeAgo } from '@/lib/format';
 import { useRelations } from '@/lib/relations-context';
 import { errorMessage } from '@/lib/supabase';
@@ -44,26 +46,8 @@ interface PostCardProps {
   onFork?: (post: FeedPost) => void;
   /** Open the post this one branched from. Defaults to its detail screen. */
   onOpenOrigin?: (originId: string) => void;
-}
-
-/** The outline heart stays; the filled one soaks in over it like ink. */
-function LikeHeart({ liked, color, idleColor }: { liked: boolean; color: string; idleColor: string }) {
-  const fill = useSharedValue(liked ? 1 : 0);
-  useEffect(() => {
-    fill.set(withTiming(liked ? 1 : 0, { duration: liked ? Motion.base : Motion.fast }));
-  }, [liked, fill]);
-  const fillStyle = useAnimatedStyle(() => ({
-    opacity: fill.value,
-    transform: [{ scale: 0.9 + 0.1 * fill.value }],
-  }));
-  return (
-    <View style={styles.heart}>
-      <Ionicons name="heart-outline" size={20} color={liked ? color : idleColor} />
-      <Animated.View style={[StyleSheet.absoluteFill, fillStyle]}>
-        <Ionicons name="heart" size={20} color={color} />
-      </Animated.View>
-    </View>
-  );
+  /** The reader left or removed a word; the screen keeps the updated post. */
+  onReaction?: (post: FeedPost) => void;
 }
 
 /**
@@ -83,8 +67,11 @@ export function PostCard({
   origin = 'circle',
   onFork,
   onOpenOrigin,
+  onReaction,
 }: PostCardProps) {
   const { colors, scheme } = useTheme();
+  const { session } = useAuth();
+  const viewerId = session?.user.id ?? '';
   const { t, tp, locale } = useI18n();
   const { block, isPending } = useRelations();
   const authorTappable = !isOwn && onOpenAuthor !== undefined;
@@ -126,6 +113,22 @@ export function PostCard({
       ? post.daily_prompt.text_ja
       : post.daily_prompt.text_en
     : null;
+
+  const openRoom = () => {
+    if (post.daily_prompt) router.push(`/prompt/${post.daily_prompt.id}`);
+  };
+
+  const handleReaction = (p: FeedPost, kind: ReactionKind | null) => {
+    onReaction?.({ ...p, my_reaction: kind });
+  };
+
+  // For the author only: who left which word. Names, never numbers.
+  const readersByWord = isOwn
+    ? REACTION_KINDS.flatMap((kind) => {
+        const names = post.reactions.filter((r) => r.kind === kind).map((r) => r.display_name);
+        return names.length > 0 ? [{ kind, names }] : [];
+      })
+    : [];
 
   const openOrigin = () => {
     if (!forkOrigin) return;
@@ -243,9 +246,17 @@ export function PostCard({
         </Pressable>
       ) : null}
       {promptText ? (
-        <Text style={[styles.promptLine, { color: colors.textTertiary }]} numberOfLines={2}>
-          {t('prompt.provenance')} · “{promptText}”
-        </Text>
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={t('prompt.roomA11y')}
+          onPress={openRoom}
+          hitSlop={6}
+          style={({ pressed }) => [styles.provenance, pressed && styles.pressed]}
+        >
+          <Text style={[styles.promptLine, { color: colors.textTertiary }]} numberOfLines={1}>
+            {t('prompt.provenance')} · {promptText}
+          </Text>
+        </Pressable>
       ) : null}
 
       <Text style={[styles.content, { color: colors.text }]}>
@@ -273,23 +284,9 @@ export function PostCard({
       ) : null}
 
       <View style={styles.actions}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={post.liked_by_me ? t('post.unlike') : t('post.like')}
-          onPress={() => onToggleLike(post)}
-          hitSlop={8}
-          style={({ pressed }) => [styles.action, pressed && styles.pressed]}
-        >
-          <LikeHeart liked={post.liked_by_me} color={colors.like} idleColor={colors.textTertiary} />
-          <Text
-            style={[
-              styles.actionCount,
-              { color: post.liked_by_me ? colors.like : colors.textTertiary },
-            ]}
-          >
-            {post.like_count}
-          </Text>
-        </Pressable>
+        {isOwn ? null : (
+          <ReactionControl post={post} viewerId={viewerId} onChange={handleReaction} />
+        )}
         {showCommentButton ? (
           <Pressable
             accessibilityRole="button"
@@ -346,6 +343,15 @@ export function PostCard({
           </Pressable>
         )}
       </View>
+      {readersByWord.length > 0 ? (
+        <View style={styles.readers}>
+          {readersByWord.map(({ kind, names }) => (
+            <Text key={kind} style={[styles.readersLine, { color: colors.textSecondary }]} numberOfLines={2}>
+              {t('reaction.fromReaders', { word: t(`reaction.${kind}`), names: names.join(', ') })}
+            </Text>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -425,10 +431,11 @@ const styles = StyleSheet.create({
     ...Type.caption,
     fontVariant: ['tabular-nums'],
   },
-  heart: {
-    width: 20,
-    height: 20,
+  readers: {
+    gap: 2,
+    marginTop: -2,
   },
+  readersLine: Type.caption,
   spacer: {
     flex: 1,
   },
