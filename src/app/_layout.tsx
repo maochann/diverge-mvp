@@ -114,6 +114,7 @@ function RootNavigator() {
             headerShown: false,
           }}
         />
+        <Stack.Screen name="prompt/[id]" options={{ title: '', headerBackTitle: t('common.back') }} />
         <Stack.Screen
           name="compose"
           options={{ title: t('tab.newPost'), presentation: 'modal', headerBackVisible: false, gestureEnabled: false }}

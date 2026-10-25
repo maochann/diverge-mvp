@@ -252,6 +252,7 @@ export default function UserProfileScreen() {
             onOpenComments={(p) => router.push(`/post/${p.id}`)}
             onDelete={() => undefined}
             onAuthorBlocked={() => router.back()}
+            onReaction={(p) => setPosts((cur) => (cur ?? []).map((x) => (x.id === p.id ? p : x)))}
           />
         )}
         ListEmptyComponent={

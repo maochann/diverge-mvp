@@ -243,6 +243,17 @@ export const en = {
   'create.publishFailed': 'Could not publish post',
   'create.photosFailed': 'Could not open photos',
 
+  // Reactions
+  'reaction.relate': 'I get this',
+  'reaction.learned': 'New to me',
+  'reaction.differs': 'Another view',
+  'reaction.openA11y': 'Leave a word on this post',
+  'reaction.yoursA11y': 'Your word: {word}. Tap to change or remove.',
+  'reaction.chooseA11y': 'Leave the word {word}',
+  'reaction.removeA11y': 'Remove your word',
+  'reaction.failed': 'Could not save your word',
+  'reaction.fromReaders': '{word} · {names}',
+
   // Daily prompt
   'prompt.title': "Today's prompt",
   'prompt.use': 'Use this prompt',
@@ -250,6 +261,14 @@ export const en = {
   'prompt.removeA11y': 'Post without the prompt',
   'prompt.unavailable': 'No prompt today.',
   'prompt.provenance': "Today's prompt",
+  'prompt.room': 'Everyone’s answers',
+  'prompt.roomA11y': 'Open everyone’s answers to this prompt',
+  'prompt.bannerA11y': "Today's prompt: {prompt}. Open everyone's answers.",
+  'prompt.answersEmpty.title': 'No answers yet',
+  'prompt.answersEmpty.detail': 'Be the first.',
+  'prompt.answersLoadFailed': 'Couldn’t load the answers',
+  'prompt.answerThis': 'Answer this',
+  'prompt.pastDay': '{date}',
 
   // Same prompt / adjacent
   'adjacent.title': 'Another angle',
@@ -619,12 +638,30 @@ export const ja: Record<TranslationKey, string> = {
   'create.publishFailed': '投稿できませんでした',
   'create.photosFailed': '写真を開けませんでした',
 
+  'reaction.relate': 'わかる',
+  'reaction.learned': '初めて知った',
+  'reaction.differs': '別の見方',
+  'reaction.openA11y': 'この投稿にひとこと残す',
+  'reaction.yoursA11y': 'あなたのひとこと: {word}。タップで変更・取り消し。',
+  'reaction.chooseA11y': '「{word}」を残す',
+  'reaction.removeA11y': 'ひとことを取り消す',
+  'reaction.failed': 'ひとことを保存できませんでした',
+  'reaction.fromReaders': '{word} · {names}',
+
   'prompt.title': '今日のきっかけ',
   'prompt.use': 'この問いで投稿',
   'prompt.using': 'この問いに答えています',
   'prompt.removeA11y': '問いを使わずに投稿',
   'prompt.unavailable': '今日の問いはありません。',
   'prompt.provenance': '今日のきっかけ',
+  'prompt.room': 'みんなの答え',
+  'prompt.roomA11y': 'この問いへのみんなの答えを開く',
+  'prompt.bannerA11y': '今日のきっかけ: {prompt}。みんなの答えを開く。',
+  'prompt.answersEmpty.title': 'まだ答えはありません',
+  'prompt.answersEmpty.detail': '最初のひとりになりましょう。',
+  'prompt.answersLoadFailed': '答えを読み込めませんでした',
+  'prompt.answerThis': 'この問いに答える',
+  'prompt.pastDay': '{date}',
 
   'adjacent.title': '別の角度から',
   'adjacent.samePrompt': '同じ問い、別の答え',

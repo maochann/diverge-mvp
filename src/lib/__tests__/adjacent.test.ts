@@ -19,6 +19,8 @@ function post(id: string, user: string, extra: Partial<FeedPost> = {}): FeedPost
     forked_from: null,
     branch_count: 0,
     daily_prompt: null,
+    my_reaction: null,
+    reactions: [],
     ...extra,
   };
 }

@@ -116,6 +116,7 @@ export default function ExplorePersonSheet() {
             onAuthorBlocked={() => router.back()}
             onFork={(p) => goTo(`/compose?forkFrom=${p.id}`)}
             onOpenOrigin={(originId) => goTo(`/post/${originId}`)}
+            onReaction={setPost}
           />
         </>
       ) : (

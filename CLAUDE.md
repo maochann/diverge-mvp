@@ -112,6 +112,15 @@ requires a new explicit instruction.
     (`mergeOutsidePool`), leaving the F F O pattern and cursors unchanged.
     Semantic adjacency is a typed seam behind `SEMANTIC_ADJACENCY_ENABLED =
     false`; no provider exists and nothing may fake a score.
+  - **Prompt room + reactions** (2026-10-25). The prompt set was replaced
+    by 45 plain nouns/phrases (`s_*` keys; old rows deactivated, never
+    deleted). `prompt/[id]` shows one day's prompt with everyone's answers
+    in writing order; a quiet banner above the feed (prompt + faces of
+    answerers, no number) opens it. **Reactions** (`reactions` table) replace
+    the heart in the UI: three fixed words (relate / learned / differs),
+    one per reader per post, no counts anywhere, no notifications; RLS lets a
+    reader see only their own word and an author see who left which word.
+    Likes remain in the database and are no longer rendered.
   - Still out of scope: search, trends, ranking, follower counts, DMs,
     stories, social notifications (likes/replies/follows), streaks, private
     accounts, ads, subscriptions, generative AI.

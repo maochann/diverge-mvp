@@ -370,6 +370,7 @@ export default function PostDetailScreen() {
               showCommentButton={false}
               onOpenAuthor={(uid) => router.push(`/user/${uid}`)}
               onAuthorBlocked={() => router.back()}
+              onReaction={setPost}
             />
             <AdjacentPosts candidates={adjacent} />
             {commentTotal > 0 ? (

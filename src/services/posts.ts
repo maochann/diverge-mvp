@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
-import type { Comment, DailyPromptRef, FeedPost, ForkOrigin, PostAuthor } from '@/types';
+import { isReactionKind } from '@/constants/reactions';
+import type { Comment, DailyPromptRef, FeedPost, ForkOrigin, PostAuthor, PostReaction } from '@/types';
 
 // `comments(count)` is paired with `.is('comments.deleted_at', null)` on
 // every query so tombstones (deleted roots that still hold replies) don't count.
@@ -8,7 +9,8 @@ const POST_FIELDS = `
   author:profiles!posts_user_id_fkey ( username, display_name, avatar_url ),
   likes ( user_id ),
   comments ( count ),
-  daily_prompt:daily_prompts ( id, prompt_date, prompt:prompt_pool ( text_en, text_ja ) )
+  daily_prompt:daily_prompts ( id, prompt_date, prompt:prompt_pool ( text_en, text_ja ) ),
+  reactions ( user_id, kind, reactor:profiles!reactions_user_id_fkey ( username, display_name ) )
 `;
 
 interface PostRow {
@@ -27,6 +29,17 @@ interface PostRow {
     prompt_date: string;
     prompt: { text_en: string; text_ja: string } | null;
   } | null;
+  reactions: { user_id: string; kind: string; reactor: { username: string; display_name: string } | null }[];
+}
+
+/** RLS already limits rows to the reader's own and (for the author) everyone's. */
+function toReactions(rows: PostRow['reactions'], viewerId: string, authorId: string): PostReaction[] {
+  if (authorId !== viewerId) return [];
+  return (rows ?? []).flatMap((r) =>
+    isReactionKind(r.kind) && r.reactor
+      ? [{ user_id: r.user_id, kind: r.kind, username: r.reactor.username, display_name: r.reactor.display_name }]
+      : [],
+  );
 }
 
 interface ForkMetaRow {
@@ -102,6 +115,11 @@ function toFeedPost(row: PostRow, viewerId: string, fork: ForkMeta | undefined):
     forked_from: fork?.origin ?? null,
     branch_count: fork?.branchCount ?? 0,
     daily_prompt: toDailyPrompt(row.daily_prompt),
+    my_reaction: (() => {
+      const mine = (row.reactions ?? []).find((r) => r.user_id === viewerId);
+      return mine && isReactionKind(mine.kind) ? mine.kind : null;
+    })(),
+    reactions: toReactions(row.reactions, viewerId, row.user_id),
   };
 }
 

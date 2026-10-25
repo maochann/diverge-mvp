@@ -17,6 +17,7 @@ import { MessageState } from '@/components/message-state';
 import { PostCard } from '@/components/post-card';
 import { PostSkeletonList } from '@/components/post-skeleton';
 import { PULL_THRESHOLD, PullFork } from '@/components/pull-fork';
+import { TodayPromptBanner } from '@/components/today-prompt-banner';
 import { ExploreCanvas } from '@/components/explore-canvas';
 import {
   CHAPTER_SIZE,
@@ -577,6 +578,15 @@ export default function FeedScreen() {
 
   const openExplore = () => void handleIntentChange('explore');
 
+  /** A word left on a post: keep the updated card without refetching. */
+  const handleReaction = (post: FeedPost) => {
+    setSession((s) =>
+      s && s.intent !== 'explore'
+        ? { ...s, chapters: mapPosts(s.chapters, (p) => (p.id === post.id ? post : p)) }
+        : s,
+    );
+  };
+
   /** Blocking is a safety action: their posts leave the screen right away. */
   const handleAuthorBlocked = (authorId: string) => {
     setSession((s) => {
@@ -674,6 +684,7 @@ export default function FeedScreen() {
     return (
       <View style={[styles.list, top]}>
         <FeedIntentPicker value={intent} onChange={handleIntentChange} />
+        <TodayPromptBanner />
         <Animated.View
           key={sessionKey}
           entering={FadeIn.duration(Motion.base)}
@@ -784,6 +795,7 @@ export default function FeedScreen() {
               onOpenAuthor={(uid) => router.push(`/user/${uid}`)}
               onAuthorBlocked={handleAuthorBlocked}
               onDelete={handleDelete}
+              onReaction={handleReaction}
               origin={item.outside ? 'beyond' : 'circle'}
             />
           </Animated.View>
@@ -796,11 +808,17 @@ export default function FeedScreen() {
             onOpenAuthor={(uid) => router.push(`/user/${uid}`)}
             onAuthorBlocked={handleAuthorBlocked}
             onDelete={handleDelete}
+            onReaction={handleReaction}
             origin={item.outside ? 'beyond' : 'circle'}
           />
         )
       }
-      ListHeaderComponent={<FeedIntentPicker value={intent} onChange={handleIntentChange} />}
+      ListHeaderComponent={
+        <>
+          <FeedIntentPicker value={intent} onChange={handleIntentChange} />
+          <TodayPromptBanner />
+        </>
+      }
       ListEmptyComponent={emptyState}
       ListFooterComponent={
         isEmpty ? null : sessionHasMore(session) ? (

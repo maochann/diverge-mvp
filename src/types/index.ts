@@ -1,3 +1,5 @@
+import type { ReactionKind } from '@/constants/reactions';
+
 export interface Profile {
   id: string;
   username: string;
@@ -29,6 +31,14 @@ export interface DailyPromptRef {
   text_ja: string;
 }
 
+/** One reader's word on a post. The list is only ever filled for the author's own posts. */
+export interface PostReaction {
+  user_id: string;
+  kind: ReactionKind;
+  username: string;
+  display_name: string;
+}
+
 /** A post as shown in the feed, with aggregates derived at query time. */
 export interface FeedPost {
   id: string;
@@ -51,6 +61,10 @@ export interface FeedPost {
   branch_count: number;
   /** The daily prompt this post answered, if any. */
   daily_prompt: DailyPromptRef | null;
+  /** The reader's own word on this post, if they left one. */
+  my_reaction: ReactionKind | null;
+  /** Who left which word: filled only when the reader is the author (RLS). */
+  reactions: PostReaction[];
 }
 
 export interface Comment {
