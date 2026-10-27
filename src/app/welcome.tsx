@@ -80,7 +80,7 @@ function BreathingNode({ name, delay }: { name: string; delay: number }) {
   const style = useAnimatedStyle(() => ({ transform: [{ scale: breath.value }] }));
   return (
     <Animated.View style={[styles.nodeBody, style]}>
-      <View style={[styles.person, { borderColor: colors.tint }]}>
+      <View style={[styles.nodeRing, { borderColor: colors.tint }]}>
         <Avatar url={null} name={name} size={30} />
       </View>
       <Text style={[styles.nodeName, { color: colors.textSecondary }]}>{name}</Text>
@@ -226,7 +226,7 @@ function CircleFigure({ active }: { active: boolean }) {
           <View key={i} style={[styles.dot, { left: x - 3, top: y - 3, backgroundColor: colors.text }]} />
         ))}
         {outside.map(([x, y], i) => (
-          <View key={i} style={[styles.nodeAt, { left: x - 28, top: y - 17 }]}>
+          <View key={i} style={[styles.nodeAt, { left: x - 28, top: y - 26 }]}>
             <BreathingNode name={['sota', 'mika', 'ren', 'yui'][i]} delay={i * 400} />
           </View>
         ))}
@@ -387,6 +387,10 @@ export default function WelcomeScreen() {
             <Animated.View entering={FadeIn.duration(Motion.base)} style={styles.copy}>
               <Text style={[styles.title, serif.strong, { color: colors.text }]}>{t(`welcome.${key}.title`)}</Text>
               <Text style={[styles.bodyText, { color: colors.textSecondary }]}>{t(`welcome.${key}.body`)}</Text>
+              <View style={styles.diff}>
+                <View style={[styles.diffRule, { backgroundColor: colors.tint }]} />
+                <Text style={[styles.diffText, { color: colors.text }]}>{t(`welcome.${key}.diff`)}</Text>
+              </View>
               {key === 'reminder' ? (
                 <View style={styles.reminderActions}>
                   {reminderOn ? (
@@ -500,6 +504,14 @@ const styles = StyleSheet.create({
     width: 56,
   },
   nodeName: Type.micro,
+  nodeRing: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   noticeIcon: {
     width: 38,
     height: 38,
@@ -585,6 +597,20 @@ const styles = StyleSheet.create({
     lineHeight: 36,
   },
   bodyText: Type.body,
+  diff: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  diffRule: {
+    width: 2,
+    borderRadius: 1,
+  },
+  diffText: {
+    ...Type.bodyStrong,
+    flex: 1,
+  },
   reminderActions: {
     flexDirection: 'row',
     gap: Spacing.md,
