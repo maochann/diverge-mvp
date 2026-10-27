@@ -121,6 +121,13 @@ requires a new explicit instruction.
     one per reader per post, no counts anywhere, no notifications; RLS lets a
     reader see only their own word and an author see who left which word.
     Likes remain in the database and are no longer rendered.
+  - **Welcome tour + composer defaults** (2026-10-26/27). `welcome` (first
+    launch, replayable from Settings → About Diverge): five paper pages, the
+    reminder first as a choice ('Turn on' asks the OS; the device registers
+    on first sign-in via `applyPendingReminder`). Composer opens with today's
+    prompt selected and Add photos first; no auto keyboard; a post is words
+    or at least one photo (`posts_has_something`). Prompts are casual
+    questions ('What did you eat today?' / '今日なに食べた？').
   - Still out of scope: search, trends, ranking, follower counts, DMs,
     stories, social notifications (likes/replies/follows), streaks, private
     accounts, ads, subscriptions, generative AI.
