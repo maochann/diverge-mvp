@@ -20,13 +20,17 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withDelay,
+  withRepeat,
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { Image } from 'expo-image';
+
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
+import { ForkLine } from '@/components/fork-line';
 import { Motion, Radius, Spacing, Type } from '@/constants/theme';
 import { useI18n } from '@/i18n';
 import { useAuth } from '@/lib/auth-context';
@@ -37,6 +41,52 @@ import { NotificationPermissionDenied, obtainPushToken } from '@/services/notifi
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+const APP_ICON = require('@/assets/images/icon.png');
+
+/** Three mock posts: avatar, a line or two, sometimes a photo. */
+function MockPost({ lines, photo, name }: { lines: number[]; photo?: boolean; name: string }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.mockPost}>
+      <Avatar url={null} name={name} size={22} />
+      <View style={styles.mockBody}>
+        <View style={styles.mockHeader}>
+          <Text style={[styles.mockName, { color: colors.text }]}>{name}</Text>
+          <Text style={[styles.mockTime, { color: colors.textTertiary }]}>2h</Text>
+        </View>
+        {lines.map((w, i) => (
+          <View key={i} style={[styles.textLine, { width: `${w * 100}%`, backgroundColor: colors.skeleton }]} />
+        ))}
+        {photo ? <View style={[styles.photo, { backgroundColor: colors.surface }]} /> : null}
+      </View>
+    </View>
+  );
+}
+
+/** A node on the circle that breathes, as on the real canvas. */
+function BreathingNode({ name, delay }: { name: string; delay: number }) {
+  const { colors } = useTheme();
+  const reduced = useReducedMotion();
+  const breath = useSharedValue(1);
+  useEffect(() => {
+    if (reduced) return;
+    breath.set(
+      withDelay(
+        delay,
+        withRepeat(withTiming(1.06, { duration: 2600, easing: Easing.inOut(Easing.sin) }), -1, true),
+      ),
+    );
+  }, [breath, delay, reduced]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: breath.value }] }));
+  return (
+    <Animated.View style={[styles.nodeBody, style]}>
+      <View style={[styles.person, { borderColor: colors.tint }]}>
+        <Avatar url={null} name={name} size={30} />
+      </View>
+      <Text style={[styles.nodeName, { color: colors.textSecondary }]}>{name}</Text>
+    </Animated.View>
+  );
+}
 
 type PageKey = 'reminder' | 'chapters' | 'circle' | 'prompt' | 'words';
 const PAGES: readonly PageKey[] = ['reminder', 'chapters', 'circle', 'prompt', 'words'];
@@ -65,45 +115,55 @@ function ReminderFigure({ active, sample }: { active: boolean; sample: string })
     transform: [{ translateY: (1 - v.value) * -10 }],
   }));
   return (
-    <Animated.View
-      style={[
-        styles.notice,
-        { backgroundColor: colors.surfaceElevated, borderColor: colors.border },
-        style,
-      ]}
-    >
-      <View style={[styles.noticeMark, { backgroundColor: colors.text }]} />
-      <View style={styles.noticeText}>
-        <Text style={[styles.noticeApp, { color: colors.textTertiary }]}>DIVERGE</Text>
-        <Text style={[styles.noticeBody, { color: colors.text }]}>{sample}</Text>
+    <View style={styles.figureWide}>
+      <Animated.View
+        style={[
+          styles.notice,
+          { backgroundColor: colors.surfaceElevated, borderColor: colors.border, shadowColor: colors.text },
+          style,
+        ]}
+      >
+        <Image source={APP_ICON} style={styles.noticeIcon} contentFit="cover" />
+        <View style={styles.noticeText}>
+          <View style={styles.noticeTop}>
+            <Text style={[styles.noticeApp, { color: colors.text }]}>Diverge</Text>
+            <Text style={[styles.noticeWhen, { color: colors.textTertiary }]}>now</Text>
+          </View>
+          <Text style={[styles.noticeBody, { color: colors.text }]}>{sample}</Text>
+        </View>
+      </Animated.View>
+      <View style={styles.noticeShadowRow}>
+        <View style={[styles.noticeGhost, { backgroundColor: colors.surface }]} />
       </View>
-    </Animated.View>
+    </View>
   );
 }
 
 /** Page 2: the fork draws itself under a chapter ending. */
-function ChaptersFigure({ active, marker }: { active: boolean; marker: string }) {
+function ChaptersFigure({ active, marker, next }: { active: boolean; marker: string; next: string }) {
   const { colors } = useTheme();
   const serif = useSerif();
   const v = useDraw(active, 150);
-  const W = 120;
-  const H = 24;
+  const W = 56;
+  const H = 16;
   const split = W * 0.45;
-  const LENGTH = 220;
+  const LENGTH = 120;
   const props = useAnimatedProps(() => ({ strokeDashoffset: LENGTH * (1 - v.value) }));
   const fade = useAnimatedStyle(() => ({ opacity: v.value }));
   return (
-    <View style={styles.figure}>
-      <Animated.View style={[styles.figureRows, fade]}>
-        {[0.9, 0.6, 0.75].map((w, i) => (
-          <View key={i} style={[styles.textLine, { width: `${w * 100}%`, backgroundColor: colors.skeleton }]} />
-        ))}
+    <View style={styles.figureWide}>
+      <Animated.View style={[styles.mockFeed, fade]}>
+        <MockPost name="sota" lines={[0.85, 0.5]} />
+        <MockPost name="mika" lines={[0.7]} photo />
       </Animated.View>
+      <View style={styles.chapterEnd}>
+      <View style={styles.forkRow}>
+        <View style={[styles.rule, { backgroundColor: colors.border }]} />
       <Svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
         <AnimatedPath
-          d={`M0 ${H - 2} H${split} L${split + 14} 2 H${W}`}
-          stroke={colors.tint}
-          strokeWidth={2}
+          d={`M0 ${H - 2} H${split} L${split + 10} 2 H${W}`}
+          stroke={colors.textTertiary}
+          strokeWidth={1.5}
           strokeLinecap="round"
           strokeLinejoin="round"
           fill="none"
@@ -111,7 +171,13 @@ function ChaptersFigure({ active, marker }: { active: boolean; marker: string })
           animatedProps={props}
         />
       </Svg>
+        <View style={[styles.rule, { backgroundColor: colors.border }]} />
+      </View>
       <Animated.Text style={[styles.marker, serif.regular, { color: colors.text }, fade]}>{marker}</Animated.Text>
+      <Animated.View style={[styles.ghostButton, { borderColor: colors.border }, fade]}>
+        <Text style={[styles.ghostButtonText, { color: colors.text }]}>{next}</Text>
+      </Animated.View>
+      </View>
     </View>
   );
 }
@@ -120,9 +186,9 @@ function ChaptersFigure({ active, marker }: { active: boolean; marker: string })
 function CircleFigure({ active }: { active: boolean }) {
   const { colors } = useTheme();
   const v = useDraw(active, 100);
-  const SIZE = 220;
+  const SIZE = 260;
   const c = SIZE / 2;
-  const r = 62;
+  const r = 70;
   const circumference = 2 * Math.PI * r;
   const circleProps = useAnimatedProps(() => ({ strokeDashoffset: circumference * (1 - v.value) }));
   const fade = useAnimatedStyle(() => ({ opacity: v.value }));
@@ -132,10 +198,10 @@ function CircleFigure({ active }: { active: boolean }) {
     [c + 8, c + 24],
   ];
   const outside = [
-    [c - 92, c - 40],
-    [c + 90, c - 58],
-    [c + 96, c + 44],
-    [c - 70, c + 78],
+    [c - 100, c - 56],
+    [c + 100, c - 70],
+    [c + 104, c + 60],
+    [c - 84, c + 92],
   ];
   return (
     <View style={[styles.figure, { width: SIZE, height: SIZE }]}>
@@ -160,8 +226,8 @@ function CircleFigure({ active }: { active: boolean }) {
           <View key={i} style={[styles.dot, { left: x - 3, top: y - 3, backgroundColor: colors.text }]} />
         ))}
         {outside.map(([x, y], i) => (
-          <View key={i} style={[styles.person, { left: x - 16, top: y - 16, borderColor: colors.tint }]}>
-            <Avatar url={null} name="person" size={28} />
+          <View key={i} style={[styles.nodeAt, { left: x - 28, top: y - 17 }]}>
+            <BreathingNode name={['sota', 'mika', 'ren', 'yui'][i]} delay={i * 400} />
           </View>
         ))}
       </Animated.View>
@@ -183,33 +249,33 @@ function PromptFigure({ active, sample }: { active: boolean; sample: string }) {
     <View style={styles.figureWide}>
       <Animated.Text style={[styles.promptSample, serif.strong, { color: colors.text }, a]}>{sample}</Animated.Text>
       <Animated.View style={[styles.answers, b]}>
-        {[0.8, 0.55].map((w, i) => (
-          <View key={i} style={styles.answer}>
-            <Avatar url={null} name="someone" size={24} />
-            <View style={styles.answerLines}>
-              <View style={[styles.textLine, { width: `${w * 100}%`, backgroundColor: colors.skeleton }]} />
-              <View style={[styles.photo, { backgroundColor: colors.surface }]} />
-            </View>
-          </View>
-        ))}
+        <MockPost name="ren" lines={[0.6]} photo />
+        <MockPost name="yui" lines={[0.9, 0.4]} />
       </Animated.View>
     </View>
   );
 }
 
 /** Page 5: the circle fills and a word appears. */
-function WordsFigure({ active, word }: { active: boolean; word: string }) {
+function WordsFigure({ active, word, others }: { active: boolean; word: string; others: string[] }) {
   const { colors } = useTheme();
   const v = useDraw(active, 300);
   const fill = useAnimatedStyle(() => ({ opacity: v.value, transform: [{ scale: 0.6 + 0.4 * v.value }] }));
   const label = useAnimatedStyle(() => ({ opacity: v.value, transform: [{ translateX: (1 - v.value) * -6 }] }));
   return (
-    <View style={styles.figure}>
+    <View style={styles.figureWide}>
+      <MockPost name="sota" lines={[0.9, 0.7]} />
       <View style={styles.wordRow}>
         <View style={[styles.ring, { borderColor: colors.textTertiary }]}>
           <Animated.View style={[styles.ringFill, { backgroundColor: colors.tint }, fill]} />
         </View>
         <Animated.Text style={[styles.word, { color: colors.tint }, label]}>{word}</Animated.Text>
+        <View style={styles.spacer} />
+        {others.map((w) => (
+          <View key={w} style={[styles.chip, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <Text style={[styles.chipText, { color: colors.textSecondary }]}>{w}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -273,19 +339,23 @@ export default function WelcomeScreen() {
       case 'reminder':
         return <ReminderFigure active={active} sample={t('welcome.reminder.sample')} />;
       case 'chapters':
-        return <ChaptersFigure active={active} marker={t('welcome.chapters.marker')} />;
+        return <ChaptersFigure active={active} marker={t('welcome.chapters.marker')} next={t('chapter.seeAnother')} />;
       case 'circle':
         return <CircleFigure active={active} />;
       case 'prompt':
         return <PromptFigure active={active} sample={t('welcome.prompt.sample')} />;
       case 'words':
-        return <WordsFigure active={active} word={t('reaction.relate')} />;
+        return <WordsFigure active={active} word={t('reaction.relate')} others={[t('reaction.learned'), t('reaction.differs')]} />;
     }
   };
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
       <View style={styles.top}>
+        <View style={styles.brand}>
+          <Image source={APP_ICON} style={styles.brandIcon} contentFit="cover" />
+          <ForkLine width={22} color={colors.tint} />
+        </View>
         <Text style={[styles.counter, { color: colors.textTertiary }]}>
           {t('welcome.page', { n: page + 1, total: PAGES.length })}
         </Text>
@@ -364,10 +434,104 @@ const styles = StyleSheet.create({
   top: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: Spacing.lg,
     paddingHorizontal: Spacing.xl,
     minHeight: 44,
   },
+  brand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    flex: 1,
+  },
+  brandIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+  },
+  mockFeed: {
+    gap: Spacing.md,
+  },
+  mockPost: {
+    flexDirection: 'row',
+    gap: Spacing.sm + 2,
+    alignItems: 'flex-start',
+  },
+  mockBody: {
+    flex: 1,
+    gap: 6,
+  },
+  mockHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  mockName: Type.captionStrong,
+  mockTime: Type.micro,
+  chapterEnd: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  forkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    alignSelf: 'stretch',
+  },
+  rule: {
+    flex: 1,
+    height: StyleSheet.hairlineWidth,
+  },
+  ghostButton: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: 14,
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  ghostButtonText: Type.captionStrong,
+  nodeAt: {
+    position: 'absolute',
+  },
+  nodeBody: {
+    alignItems: 'center',
+    gap: 3,
+    width: 56,
+  },
+  nodeName: Type.micro,
+  noticeIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 9,
+  },
+  noticeTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  noticeWhen: Type.micro,
+  noticeShadowRow: {
+    alignItems: 'center',
+    marginTop: -6,
+  },
+  noticeGhost: {
+    width: '88%',
+    height: 10,
+    borderBottomLeftRadius: Radius.lg,
+    borderBottomRightRadius: Radius.lg,
+  },
+  spacer: {
+    flex: 1,
+  },
+  chip: {
+    minHeight: 28,
+    paddingHorizontal: Spacing.sm + 2,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    justifyContent: 'center',
+  },
+  chipText: Type.caption,
   counter: {
     ...Type.caption,
     fontVariant: ['tabular-nums'],
@@ -387,7 +551,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xxl,
   },
   figureSlot: {
-    height: 240,
+    height: 280,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -417,6 +581,8 @@ const styles = StyleSheet.create({
   },
   title: {
     ...Type.display,
+    fontSize: 30,
+    lineHeight: 36,
   },
   bodyText: Type.body,
   reminderActions: {
@@ -441,20 +607,16 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderRadius: Radius.lg + 6,
     borderWidth: StyleSheet.hairlineWidth,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
   },
-  noticeMark: {
-    width: 34,
-    height: 34,
-    borderRadius: Radius.md,
-  },
+
   noticeText: {
     flex: 1,
     gap: 2,
   },
-  noticeApp: {
-    ...Type.micro,
-    letterSpacing: 0.6,
-  },
+  noticeApp: Type.captionStrong,
   noticeBody: Type.body,
   me: {
     position: 'absolute',
