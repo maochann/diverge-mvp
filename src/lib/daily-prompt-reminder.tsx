@@ -39,6 +39,33 @@ async function writeCache(userId: string, device: RegisteredDevice): Promise<voi
   await AsyncStorage.setItem(storageKey(userId), JSON.stringify(device)).catch(() => undefined);
 }
 
+/**
+ * The welcome tour can turn the reminder on before there is an account.
+ * The OS permission is asked there; the server row is created the first
+ * time someone signs in on this device.
+ */
+const PENDING_KEY = 'daily-prompt-reminder:pending';
+
+export async function markReminderWanted(): Promise<void> {
+  await AsyncStorage.setItem(PENDING_KEY, '1').catch(() => undefined);
+}
+
+export async function applyPendingReminder(userId: string, locale: Locale): Promise<void> {
+  try {
+    if ((await AsyncStorage.getItem(PENDING_KEY)) !== '1') return;
+    const token = await obtainPushToken();
+    const saved = await registerPushDevice(
+      token,
+      { enabled: true, preferredTime: DEFAULT_REMINDER_TIME },
+      locale,
+    );
+    await writeCache(userId, saved);
+    await AsyncStorage.removeItem(PENDING_KEY);
+  } catch {
+    // Permission was withdrawn or the device is a simulator: Settings still works.
+  }
+}
+
 /** Forward a language change to the server copy, if this device is registered. */
 export async function syncReminderLanguage(userId: string, locale: Locale): Promise<void> {
   const cached = await readCache(userId);
