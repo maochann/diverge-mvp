@@ -16,6 +16,8 @@ interface ReactionControlProps {
   viewerId: string;
   /** Tell the owning screen so the card can re-render with the new word. */
   onChange: (post: FeedPost, kind: ReactionKind | null) => void;
+  /** The chooser opened or closed; the card clears the row to make room. */
+  onOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -23,12 +25,17 @@ interface ReactionControlProps {
  * three words. The chosen word stays next to the circle in ink; nothing is
  * counted and nobody else sees it except the post's author.
  */
-export function ReactionControl({ post, viewerId, onChange }: ReactionControlProps) {
+export function ReactionControl({ post, viewerId, onChange, onOpenChange }: ReactionControlProps) {
   const { colors } = useTheme();
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
   const [busy, setBusy] = useState(false);
   const current = post.my_reaction;
+
+  const setOpen = (next: boolean) => {
+    setOpenState(next);
+    onOpenChange?.(next);
+  };
 
   const choose = async (kind: ReactionKind | null) => {
     setOpen(false);
@@ -55,7 +62,7 @@ export function ReactionControl({ post, viewerId, onChange }: ReactionControlPro
           current ? t('reaction.yoursA11y', { word: t(`reaction.${current}`) }) : t('reaction.openA11y')
         }
         accessibilityState={{ expanded: open }}
-        onPress={() => setOpen((v) => !v)}
+        onPress={() => setOpen(!open)}
         disabled={busy}
         hitSlop={8}
         style={({ pressed }) => [styles.trigger, pressed && styles.pressed]}

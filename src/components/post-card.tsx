@@ -72,6 +72,8 @@ export function PostCard({
   const { colors, scheme } = useTheme();
   const { session } = useAuth();
   const viewerId = session?.user.id ?? '';
+  // While the three words are showing, the rest of the row steps aside.
+  const [choosingWord, setChoosingWord] = useState(false);
   const { t, tp, locale } = useI18n();
   const { block, isPending } = useRelations();
   const authorTappable = !isOwn && onOpenAuthor !== undefined;
@@ -285,9 +287,14 @@ export function PostCard({
 
       <View style={styles.actions}>
         {isOwn ? null : (
-          <ReactionControl post={post} viewerId={viewerId} onChange={handleReaction} />
+          <ReactionControl
+            post={post}
+            viewerId={viewerId}
+            onChange={handleReaction}
+            onOpenChange={setChoosingWord}
+          />
         )}
-        {showCommentButton ? (
+        {showCommentButton && !choosingWord ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('post.viewComments')}
@@ -301,6 +308,7 @@ export function PostCard({
             </Text>
           </Pressable>
         ) : null}
+        {choosingWord ? null : (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
@@ -319,6 +327,7 @@ export function PostCard({
             </Text>
           ) : null}
         </Pressable>
+        )}
         <View style={styles.spacer} />
         {isOwn ? (
           <Pressable
@@ -330,7 +339,7 @@ export function PostCard({
           >
             <Ionicons name="trash-outline" size={20} color={colors.textTertiary} />
           </Pressable>
-        ) : (
+        ) : choosingWord ? null : (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('common.moreOptions')}
