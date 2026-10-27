@@ -11,9 +11,9 @@ import { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { LocaleProvider, useT, type LanguagePreference, type Locale } from '@/i18n';
+import { LocaleProvider, useI18n, type LanguagePreference, type Locale } from '@/i18n';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
-import { syncReminderLanguage } from '@/lib/daily-prompt-reminder';
+import { applyPendingReminder, syncReminderLanguage } from '@/lib/daily-prompt-reminder';
 import { reminderUrlFrom } from '@/services/notifications';
 import { RelationsProvider } from '@/lib/relations-context';
 import { Type } from '@/constants/theme';
@@ -33,8 +33,16 @@ Notifications.setNotificationHandler({
 function RootNavigator() {
   const { session, initializing, completeRecovery, recovering } = useAuth();
   const { colors } = useTheme();
-  const t = useT();
+  const { t, locale } = useI18n();
   const serif = useSerif();
+
+  // A reminder turned on during the welcome tour is registered once signed in.
+  const userId = session?.user.id ?? null;
+  useEffect(() => {
+    if (userId) void applyPendingReminder(userId, locale);
+    // Only when the account changes; the language is read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
 
   // Tapping the day's reminder opens the composer with the prompt selected.
   // Only the reminder exists; any other notification is ignored.
@@ -137,6 +145,8 @@ function RootNavigator() {
       <Stack.Protected guard={!session}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       </Stack.Protected>
+      {/* Reachable signed in or out: the first-launch tour, replayable from Settings. */}
+      <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade' }} />
       {/* Reachable signed in or out: reset links land here. */}
       <Stack.Screen name="reset-password" options={{ title: t('nav.resetPassword'), headerShown: false }} />
     </Stack>

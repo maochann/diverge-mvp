@@ -166,6 +166,7 @@ export default function SettingsScreen() {
       </Section>
 
       <Section title={t('settings.about')}>
+        <Row label={t('settings.aboutDiverge')} onPress={() => router.push('/welcome?replay=1')} />
         <Row label={t('settings.terms')} external onPress={() => void Linking.openURL(LEGAL_URLS.terms)} />
         <Row
           label={t('settings.privacyPolicy')}
