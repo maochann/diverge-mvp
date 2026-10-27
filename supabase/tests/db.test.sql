@@ -368,6 +368,21 @@ begin
   perform test.as_admin();
 end $$;
 
+-- ------------------------------------------------------- photo-only posts
+do $$
+declare c uuid := '00000000-0000-0000-0000-00000000000c'; p uuid; err text;
+begin
+  perform test.as_user(c);
+  insert into posts (user_id, content, image_url, image_urls)
+  values (c, '', 'https://x/p.jpg', array['https://x/p.jpg']) returning id into p;
+  perform test.check(p is not null, 'a photo with no words is a post');
+  err := test.fails(format('insert into posts (user_id, content) values (%L, %L)', c, ''));
+  perform test.check(err is not null, 'nothing at all is not a post');
+  err := test.fails(format('insert into posts (user_id, content) values (%L, %L)', c, repeat('x', 501)));
+  perform test.check(err is not null, 'the 500-character limit still holds');
+  perform test.as_admin();
+end $$;
+
 -- ------------------------------------------------------- account deletion
 do $$
 declare

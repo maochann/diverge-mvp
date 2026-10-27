@@ -60,7 +60,8 @@ export default function ComposeScreen() {
   const [forkLoaded, setForkLoaded] = useState<{ id: string; state: ForkState } | null>(null);
   const [forkDismissed, setForkDismissed] = useState(false);
   const [prompt, setPrompt] = useState<DailyPromptRef | null>(null);
-  // Null until the writer decides; a notification tap pre-selects the prompt.
+  // Null until the writer decides. The prompt is the starting point: it is
+  // selected unless the writer dismisses it (or is branching from a post).
   const [promptChoice, setPromptChoice] = useState<boolean | null>(null);
 
   const forkId = forkFrom && forkFrom.length > 0 && !forkDismissed ? forkFrom : null;
@@ -70,7 +71,7 @@ export default function ComposeScreen() {
       ? forkLoaded.state
       : { status: 'loading' }
     : null;
-  const usePrompt = promptChoice ?? promptParam === 'today';
+  const usePrompt = promptChoice ?? (promptParam === 'today' || forkId === null);
 
   // The original of a fork, as far as the writer can see it.
   useEffect(() => {
@@ -114,7 +115,9 @@ export default function ComposeScreen() {
     else router.navigate(lastTab());
   }, []);
 
-  const canSubmit = content.trim().length > 0 && !submitting && fork?.status !== 'loading';
+  // Words or a photo: either is a post.
+  const canSubmit =
+    (content.trim().length > 0 || images.length > 0) && !submitting && fork?.status !== 'loading';
   const nearLimit = content.length > MAX_LENGTH - 50;
   const promptText = prompt ? (locale === 'ja' ? prompt.text_ja : prompt.text_en) : null;
 
@@ -291,17 +294,33 @@ export default function ComposeScreen() {
           </Animated.View>
         ) : null}
 
-        <TextInput
-          accessibilityLabel={t('create.textA11y')}
-          value={content}
-          onChangeText={(v) => setContent(v.slice(0, MAX_LENGTH))}
-          placeholder={fork?.status === 'ready' ? t('fork.placeholder') : t('create.placeholder')}
-          placeholderTextColor={colors.textTertiary}
-          keyboardAppearance={scheme}
-          multiline
-          autoFocus
-          style={[styles.textArea, { color: colors.text }]}
-        />
+        <View style={[styles.pickerRow]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={images.length === 0 ? t('create.addPhotos') : t('create.addMorePhotos')}
+            onPress={handlePickImages}
+            disabled={images.length >= MAX_PHOTOS}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.tool,
+              (pressed || images.length >= MAX_PHOTOS) && styles.pressed,
+            ]}
+          >
+            <Ionicons name="images-outline" size={24} color={colors.tint} />
+            <Text style={[styles.toolLabel, { color: colors.tint }]}>
+              {images.length === 0
+                ? t('create.addPhotos')
+                : images.length >= MAX_PHOTOS
+                  ? t('create.photosMax', { max: MAX_PHOTOS })
+                  : t('create.addMore', { n: images.length, max: MAX_PHOTOS })}
+            </Text>
+          </Pressable>
+          {nearLimit ? (
+            <Text style={[styles.counter, { color: colors.danger }]}>
+              {MAX_LENGTH - content.length}
+            </Text>
+          ) : null}
+        </View>
 
         {images.length > 0 ? (
           <ScrollView
@@ -330,33 +349,25 @@ export default function ComposeScreen() {
           </ScrollView>
         ) : null}
 
-        <View style={[styles.toolbar, { borderTopColor: colors.border }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={images.length === 0 ? t('create.addPhotos') : t('create.addMorePhotos')}
-            onPress={handlePickImages}
-            disabled={images.length >= MAX_PHOTOS}
-            hitSlop={8}
-            style={({ pressed }) => [
-              styles.tool,
-              (pressed || images.length >= MAX_PHOTOS) && styles.pressed,
-            ]}
-          >
-            <Ionicons name="images-outline" size={24} color={colors.tint} />
-            <Text style={[styles.toolLabel, { color: colors.tint }]}>
-              {images.length === 0
-                ? t('create.addPhotos')
-                : images.length >= MAX_PHOTOS
-                  ? t('create.photosMax', { max: MAX_PHOTOS })
-                  : t('create.addMore', { n: images.length, max: MAX_PHOTOS })}
-            </Text>
-          </Pressable>
-          {nearLimit ? (
-            <Text style={[styles.counter, { color: colors.danger }]}>
-              {MAX_LENGTH - content.length}
-            </Text>
-          ) : null}
-        </View>
+        <TextInput
+          accessibilityLabel={t('create.textA11y')}
+          value={content}
+          onChangeText={(v) => setContent(v.slice(0, MAX_LENGTH))}
+          placeholder={
+            fork?.status === 'ready'
+              ? t('fork.placeholder')
+              : usePrompt && promptText
+                ? t('create.placeholderOptional')
+                : t('create.placeholder')
+          }
+          placeholderTextColor={colors.textTertiary}
+          keyboardAppearance={scheme}
+          multiline
+          // The keyboard waits: a photo is the first thing, words are optional.
+          autoFocus={fork?.status === 'ready'}
+          style={[styles.textArea, { color: colors.text }]}
+        />
+
 
         {uploadProgress ? (
           <Text style={[styles.progress, { color: colors.textSecondary }]}>{uploadProgress}</Text>
@@ -433,7 +444,7 @@ const styles = StyleSheet.create({
     ...Type.body,
     fontSize: 18,
     lineHeight: 26,
-    minHeight: 140,
+    minHeight: 96,
     textAlignVertical: 'top',
   },
   thumbs: {
@@ -457,12 +468,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
   },
-  toolbar: {
+  pickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: Spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    minHeight: 44,
   },
   tool: {
     flexDirection: 'row',

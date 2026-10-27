@@ -261,9 +261,11 @@ export function PostCard({
         </Pressable>
       ) : null}
 
-      <Text style={[styles.content, { color: colors.text }]}>
-        {showTranslation && translation !== null ? translation : post.content}
-      </Text>
+      {post.content.length > 0 ? (
+        <Text style={[styles.content, { color: colors.text }]}>
+          {showTranslation && translation !== null ? translation : post.content}
+        </Text>
+      ) : null}
       {translatable ? (
         <Pressable
           accessibilityRole="button"
