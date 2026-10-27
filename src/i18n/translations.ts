@@ -231,6 +231,7 @@ export const en = {
 
   // Create post
   'create.placeholder': 'Write something.',
+  'create.placeholderOptional': 'A line, if you want one.',
   'create.textA11y': 'Post text',
   'create.addPhotos': 'Add photos',
   'create.addMorePhotos': 'Add more photos',
@@ -424,7 +425,7 @@ export const en = {
   'welcome.circle.body': 'No like counts. No follower counts. Your feed is who you follow, and nothing else.',
   'welcome.circle.diff': 'No algorithm decides what you see. You do.',
   'welcome.prompt.title': 'Same question, different answers.',
-  'welcome.prompt.body': 'A short prompt each day. Answer it or don’t. Then see how everyone else did.',
+  'welcome.prompt.body': 'A short prompt each day. A photo is enough. Then see how everyone else did.',
   'welcome.prompt.sample': 'Today’s sky',
   'welcome.prompt.diff': 'Not what’s trending. What everyone saw today.',
   'welcome.words.title': 'Leave a word, not a number.',
@@ -656,6 +657,7 @@ export const ja: Record<TranslationKey, string> = {
   'fork.placeholder': 'ここから、どこへ向かう？',
 
   'create.placeholder': '何か書いてみよう。',
+  'create.placeholderOptional': 'ひとこと添えるなら。',
   'create.textA11y': '投稿の本文',
   'create.addPhotos': '写真を追加',
   'create.addMorePhotos': '写真をさらに追加',
@@ -837,7 +839,7 @@ export const ja: Record<TranslationKey, string> = {
   'welcome.circle.body': 'いいねの数も、フォロワーの数もありません。フォローした人の投稿だけが届きます。',
   'welcome.circle.diff': '何を見るかを決めるのはアルゴリズムじゃなく、自分。',
   'welcome.prompt.title': '同じ問いに、違う答え。',
-  'welcome.prompt.body': '毎日ひとつ、短い問い。答えても、答えなくてもいい。みんなの答えはあとから見られます。',
+  'welcome.prompt.body': '毎日ひとつ、短い問い。写真一枚で十分。みんなの答えはあとから見られます。',
   'welcome.prompt.sample': '今日の空',
   'welcome.prompt.diff': '流行りじゃなく、今日みんなが見たもの。',
   'welcome.words.title': '数じゃなくて、ひとこと。',
