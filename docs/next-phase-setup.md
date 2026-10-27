@@ -156,3 +156,7 @@ the app now asks for the app language rather than the device language.
 ## 8. 2026-10-25 migrations (prompt room + reactions)
 
 **Applied 2026-10-25** via the SQL editor: `20261025100000_simple_prompts.sql` (45 active, 60 retired) and `20261025100100_reactions.sql` (table + 5 policies). Tomorrow's prompt verified as one of the new set. Needs a new build (1.2) to reach users; the 1.1 build keeps working (it never reads `reactions`).
+
+## 9. 2026-10-27 migration (photo-only posts)
+
+`20261027100000_photo_only_posts.sql` replaces the `content_length` check with `posts_has_something` (text or at least one photo, 500 max). Applied via the SQL editor on 2026-10-27.
