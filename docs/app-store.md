@@ -136,3 +136,4 @@ Command: `xcrun simctl io booted screenshot <file>.png`.
 - 2026-10-13: Version 1.1 (build 12) APPROVED — status 配信準備完了 (Ready for Distribution); released automatically on the unlisted link.
 - 2026-10-21: Daily prompt reminder verified on a real iPhone (one notification at the chosen time, tap opens the composer with the prompt selected). PHP2Shell (CVE-2026-109618/109619) checked: no PHP anywhere in Diverge (RN + Supabase/Deno) or the legal pages (static GitHub Pages); nothing to patch.
 - 2026-10-28: Version 1.2 (build 13, 1.2.0) submitted for App Review (審査待ち). Adds the prompt room, three-word reactions (likes hidden), casual-question prompts, welcome tour, composer defaults (prompt first, photo-only posts).
+- 2026-10-29: Version 1.2 (build 13) APPROVED — 配信準備完了, released on the unlisted link.
