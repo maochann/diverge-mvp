@@ -402,3 +402,15 @@ begin
 end $$;
 
 select 'ALL DATABASE TESTS PASSED' as result;
+
+-- app_config: anyone signed in can read it, nobody can change it.
+do $$
+begin
+  perform test.as_user('00000000-0000-0000-0000-00000000000a');
+  perform test.check((select count(*) from public.app_config where key like 'ios_%') = 3, 'app_config readable');
+  perform test.check(
+    test.fails($q$update public.app_config set value = '9.9.9' where key = 'ios_latest_version'$q$) is not null
+    or (select value from public.app_config where key = 'ios_latest_version') = '1.3.0',
+    'app_config not writable by users');
+  perform test.as_admin();
+end $$;

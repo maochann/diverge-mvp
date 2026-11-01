@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { LABEL_HEIGHT, LABEL_WIDTH_EXTRA, layoutCanvas } from '../explore-layout';
+import { LABEL_HEIGHT, LABEL_WIDTH_EXTRA, layoutCanvas, planCanvas } from '../explore-layout';
 
 /** The name label under a node: the text itself, narrower than its box. */
 function label(p: { x: number; y: number; size: number }) {
@@ -48,7 +48,7 @@ describe('layoutCanvas', () => {
   for (const box of boxes) {
     for (const n of [1, 3, 7, 8, 12, 16, 18, 20, 22]) {
       it(`keeps ${n} people apart in a ${box.width}x${box.height} box`, () => {
-        const { outside } = layoutCanvas(ids(n), [], box);
+        const { outside } = planCanvas(ids(n), [], box).layout;
         expect(outside).toHaveLength(n);
         for (let i = 0; i < n; i++) {
           for (let j = i + 1; j < n; j++) {
@@ -88,5 +88,30 @@ describe('layoutCanvas', () => {
       const q = b.outside.find((o) => o.id === p.id);
       expect(q).toEqual(p);
     }
+  });
+
+  describe('planCanvas', () => {
+    const box = { width: 390, height: 640 };
+
+    it('stays at the screen size while everyone fits', () => {
+      const plan = planCanvas(ids(10), [], box);
+      expect(plan.fit).toBe(1);
+      expect(plan.width).toBe(box.width);
+    });
+
+    it('spreads out rather than shrinking when the screen is short of room', () => {
+      for (const n of [24, 30, 40]) {
+        const plan = planCanvas(ids(n), [], box);
+        expect(plan.layout.scale).toBe(1);
+        expect(plan.fit).toBeLessThan(1);
+        expect(plan.width * plan.fit).toBeCloseTo(box.width, 5);
+        const { outside } = plan.layout;
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            expect(clash(outside[i], outside[j]), `${n} people: ${i} and ${j}`).toBe(false);
+          }
+        }
+      }
+    });
   });
 });

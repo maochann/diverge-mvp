@@ -21,6 +21,14 @@ export const en = {
   'common.moreOptions': 'More options',
   'common.openProfile': "Open {name}'s profile",
 
+  // Update notice (versions come from the app_config table)
+  'update.title': 'A new version is ready',
+  'update.body': 'Diverge {version} is on the App Store. Update when you have a moment.',
+  'update.requiredTitle': 'Please update Diverge',
+  'update.requiredBody': 'This version no longer works with the server. Update to keep going.',
+  'update.open': 'Open the App Store',
+  'update.later': 'Not now',
+
   // Errors (see errorMessage in lib/supabase.ts)
   'error.generic': 'Something went wrong. Please try again.',
   'error.network': 'Could not reach the server. Check your connection and try again.',
@@ -457,6 +465,14 @@ export const ja: Record<TranslationKey, string> = {
   'common.you': 'あなた',
   'common.moreOptions': 'その他',
   'common.openProfile': '{name}のプロフィールを開く',
+
+  // Update notice
+  'update.title': '新しいバージョンがあります',
+  'update.body': 'Diverge {version} が App Store にあります。手が空いたときに更新してください。',
+  'update.requiredTitle': 'Diverge を更新してください',
+  'update.requiredBody': 'このバージョンはサーバーと合わなくなりました。続けるには更新が必要です。',
+  'update.open': 'App Store を開く',
+  'update.later': 'あとで',
 
   'error.generic': 'うまくいきませんでした。もう一度お試しください。',
   'error.network': 'サーバーに接続できません。通信環境を確認してもう一度お試しください。',

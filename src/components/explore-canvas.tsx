@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
   useAnimatedProps,
@@ -17,7 +18,7 @@ import { Button } from '@/components/button';
 import { PersonNode, type Disturbance } from '@/components/person-node';
 import { Spacing, Type } from '@/constants/theme';
 import { useI18n } from '@/i18n';
-import { insidePositionFor, layoutCanvas } from '@/lib/explore-layout';
+import { insidePositionFor, planCanvas } from '@/lib/explore-layout';
 import {
   availableIn,
   hasNextRound,
@@ -113,11 +114,12 @@ export function ExploreCanvas({
   const insideSet = new Set(insideIds);
   // People followed during this session stay where they are (the session is
   // a snapshot); their own node becomes the mark, so they are not drawn twice.
-  const layout = layoutCanvas(
+  const plan = planCanvas(
     session.people.map((p) => p.id),
     insideIds.filter((id) => !session.people.some((p) => p.id === id)),
     box,
   );
+  const { layout } = plan;
   const { center, boundaryRadius } = layout;
   const circumference = 2 * Math.PI * boundaryRadius;
 
@@ -128,6 +130,68 @@ export function ExploreCanvas({
     x2: center.x + (reachX.value - center.x) * reachProgress.value,
     y2: center.y + (reachY.value - center.y) * reachProgress.value,
     opacity: reachOpacity.value,
+  }));
+
+  // The space can be larger than the screen. It opens zoomed out so everyone
+  // is in view, then can be pinched closer and moved by hand. A drag that
+  // starts on a person nudges them (their own gesture wins by activating
+  // first); one that starts on paper moves the view.
+  const view = { scale: useSharedValue(1), x: useSharedValue(0), y: useSharedValue(0) };
+  const grab = { scale: useSharedValue(1), x: useSharedValue(0), y: useSharedValue(0) };
+  const { fit, width: spaceWidth, height: spaceHeight } = plan;
+  useEffect(() => {
+    view.scale.set(fit);
+    view.x.set((box.width - spaceWidth * fit) / 2);
+    view.y.set((box.height - spaceHeight * fit) / 2);
+    // Shared values are stable; re-centre only when the space or screen changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fit, spaceWidth, spaceHeight, box.width, box.height]);
+
+  const minScale = fit;
+  const maxScale = Math.max(1, fit) * 1.6;
+  /** Keep the space covering the screen: centred when smaller, edges inside when larger. */
+  const clampView = (s: number, x: number, y: number) => {
+    'worklet';
+    const w = spaceWidth * s;
+    const h = spaceHeight * s;
+    return {
+      x: w <= box.width ? (box.width - w) / 2 : Math.min(0, Math.max(box.width - w, x)),
+      y: h <= box.height ? (box.height - h) / 2 : Math.min(0, Math.max(box.height - h, y)),
+    };
+  };
+  const pinch = Gesture.Pinch()
+    .onStart(() => {
+      grab.scale.set(view.scale.get());
+      grab.x.set(view.x.get());
+      grab.y.set(view.y.get());
+    })
+    .onUpdate((e) => {
+      const s = Math.min(maxScale, Math.max(minScale, grab.scale.get() * e.scale));
+      const k = s / grab.scale.get();
+      // Zoom about the fingers, so what is under them stays put.
+      const p = clampView(
+        s,
+        e.focalX - (e.focalX - grab.x.get()) * k,
+        e.focalY - (e.focalY - grab.y.get()) * k,
+      );
+      view.scale.set(s);
+      view.x.set(p.x);
+      view.y.set(p.y);
+    });
+  const drag = Gesture.Pan()
+    .minDistance(10)
+    .onStart(() => {
+      grab.x.set(view.x.get());
+      grab.y.set(view.y.get());
+    })
+    .onUpdate((e) => {
+      const p = clampView(view.scale.get(), grab.x.get() + e.translationX, grab.y.get() + e.translationY);
+      view.x.set(p.x);
+      view.y.set(p.y);
+    });
+  const viewGesture = Gesture.Simultaneous(pinch, drag);
+  const viewStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: view.x.value }, { translateY: view.y.value }, { scale: view.scale.value }],
   }));
 
   /** Reaching out: a line runs from you to them and fades as the sheet opens. */
@@ -251,11 +315,12 @@ export function ExploreCanvas({
       {toggle}
       <View style={styles.canvas} onLayout={handleLayout}>
         {box.width > 0 ? (
-          <>
+          <GestureDetector gesture={viewGesture}>
+          <Animated.View style={[styles.space, { width: spaceWidth, height: spaceHeight }, viewStyle]}>
             {/* The circle itself: one hairline that draws on, no fill, no meaning in radius. */}
             <Svg
-              width={box.width}
-              height={box.height}
+              width={spaceWidth}
+              height={spaceHeight}
               style={StyleSheet.absoluteFill}
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
@@ -337,7 +402,8 @@ export function ExploreCanvas({
                 </View>
               );
             })}
-          </>
+          </Animated.View>
+          </GestureDetector>
         ) : null}
       </View>
       {footer}
@@ -351,6 +417,13 @@ const styles = StyleSheet.create({
   },
   canvas: {
     flex: 1,
+    overflow: 'hidden',
+  },
+  space: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    transformOrigin: 'top left',
   },
   nodeWrap: {
     position: 'absolute',

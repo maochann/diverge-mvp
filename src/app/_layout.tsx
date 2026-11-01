@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { UpdateNotice } from '@/components/update-notice';
 import { LocaleProvider, useI18n, type LanguagePreference, type Locale } from '@/i18n';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { applyPendingReminder, syncReminderLanguage } from '@/lib/daily-prompt-reminder';
@@ -180,6 +181,7 @@ export default function RootLayout() {
           <LocaleSync>
             <RelationsProvider>
               <RootNavigator />
+              <UpdateNotice />
             </RelationsProvider>
           </LocaleSync>
         </AuthProvider>

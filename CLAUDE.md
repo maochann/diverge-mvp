@@ -128,6 +128,18 @@ requires a new explicit instruction.
     prompt selected and Add photos first; no auto keyboard; a post is words
     or at least one photo (`posts_has_something`). Prompts are casual
     questions ('What did you eat today?' / '今日なに食べた？').
+  - **Explore as a space that grows + update notice** (2026-11-01, 1.3.0).
+    `planCanvas` lays the rings out in a box up to 3x the screen (each ring
+    holds what its length allows; the second sits a node and a label
+    further out; people are spaced by arc length on a ring stretched up to
+    1.45x tall), shown zoomed out to fit, then pinch to zoom and drag to
+    move (`ExploreCanvas`: a drag on a person nudges, on paper pans).
+    `app_config` (anon-readable, dashboard-written: `ios_latest_version`,
+    `ios_min_version`, `ios_store_url`) + `UpdateNotice` at the root: an
+    optional notice once per store version ('Not now' remembered on the
+    device), a required one below `ios_min_version` that stays until the
+    update. Bump `ios_latest_version` in the dashboard after each release
+    goes live; raise `ios_min_version` only when the server breaks old apps.
   - Still out of scope: search, trends, ranking, follower counts, DMs,
     stories, social notifications (likes/replies/follows), streaks, private
     accounts, ads, subscriptions, generative AI.
@@ -144,7 +156,8 @@ requires a new explicit instruction.
   actually branches: selected intent, selected tab, end of chapter.
 - Catch up / Mix are linear "paragraph" feeds; Explore is a spatial canvas
   (`ExploreCanvas`, `explore-layout.ts`, `explore-session.ts`): position and
-  node size never encode popularity. Sessions are snapshots; opening a
+  node size never encode popularity (everyone on a ring is one size; the
+  whole space zooms, never one person). Sessions are snapshots; opening a
   person's post is what counts as seen.
 - Motion language (`Motion` in theme.ts): taps sink to 0.98 and spring back
   (`Tappable`), moves use the one spring, state changes fade with a 2-6pt

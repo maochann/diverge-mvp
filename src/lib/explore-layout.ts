@@ -43,7 +43,24 @@ export interface CanvasLayout {
   boundaryRadius: number;
   outside: CanvasPoint[];
   inside: InsidePoint[];
+  /** 1 at full node size; below 1 when the box was too small for everyone. */
+  scale: number;
 }
+
+/**
+ * A canvas that may be larger than the screen: laid out in a box `spread`
+ * times the visible one, shown at `fit` (= 1 / spread) so everyone is in
+ * view at first, and free to be pinched closer and moved around.
+ */
+export interface CanvasPlan {
+  layout: CanvasLayout;
+  width: number;
+  height: number;
+  fit: number;
+}
+
+/** The canvas grows up to this many times the screen before nodes shrink. */
+const MAX_SPREAD = 3;
 
 /** FNV-1a; small, deterministic, good enough to scatter a few ids. */
 export function hashId(id: string): number {
@@ -79,7 +96,7 @@ const RING_GAP = 44;
  * node, one label and a little air, so a node on one ring never touches a
  * node or label on the other whatever its angle.
  */
-const SECOND_RING_GAP = NODE_SIZE[1] / 2 + NODE_SIZE[2] / 2 + LABEL_HEIGHT + 10;
+const SECOND_RING_GAP = NODE_SIZE[1] / 2 + NODE_SIZE[2] / 2 + LABEL_HEIGHT + 14;
 /** Room at the sides of the box for a node and its name label. */
 const EDGE_MARGIN_X = 46;
 /** Room at the top and bottom of the box for a node and its name label. */
@@ -246,5 +263,26 @@ export function layoutCanvas(
     boundaryRadius,
     outside: outsideIds.map((id) => byId.get(id) as CanvasPoint),
     inside: insideIds.map((id) => insidePositionFor(id, center, boundaryRadius)),
+    scale,
   };
+}
+
+/**
+ * Plan the canvas for a screen of `box`: the smallest spread (in steps of a
+ * tenth) at which everyone fits at full size, shown zoomed out to fit. Past
+ * MAX_SPREAD the nodes shrink instead, as before.
+ */
+export function planCanvas(
+  outsideIds: readonly string[],
+  insideIds: readonly string[],
+  box: CanvasSize,
+): CanvasPlan {
+  let spread = 1;
+  for (;;) {
+    const width = box.width * spread;
+    const height = box.height * spread;
+    const layout = layoutCanvas(outsideIds, insideIds, { width, height });
+    if (layout.scale === 1 || spread >= MAX_SPREAD) return { layout, width, height, fit: 1 / spread };
+    spread = Math.round((spread + 0.1) * 10) / 10;
+  }
 }
