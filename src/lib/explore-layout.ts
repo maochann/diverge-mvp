@@ -10,9 +10,12 @@
  * person gets a stable angle from a hash of their id, so the same person
  * stays in roughly the same place from one session to the next, and people
  * are spread evenly around their ring in that order.
+ *
+ * How many people a ring holds follows from its length: each node needs
+ * its own width plus its name label beside the next one. When even two
+ * rings are short of room, every node shrinks a little (all of a ring stay
+ * the same size, so size still says nothing about a person).
  */
-
-export const RING_CAPACITY = 7;
 
 export interface CanvasPoint {
   id: string;
@@ -63,10 +66,91 @@ export function fractionFor(id: string): number {
 }
 
 export const NODE_SIZE = { 1: 60, 2: 50 } as const;
+/** The name label is drawn `size + LABEL_WIDTH_EXTRA` wide under the node. */
+export const LABEL_WIDTH_EXTRA = 28;
+/** Height of the name label plus its gap, below the node. */
+export const LABEL_HEIGHT = 22;
+/** Smallest the nodes go when the canvas is crowded. */
+const MIN_SCALE = 0.7;
+
 const RING_GAP = 44;
-const SECOND_RING_GAP = 48;
-/** Room for a node plus its name label at the edge of the box. */
-const EDGE_MARGIN = 46;
+/**
+ * Ring 1 to ring 2, centre to centre: a ring-1 half node, a ring-2 half
+ * node, one label and a little air, so a node on one ring never touches a
+ * node or label on the other whatever its angle.
+ */
+const SECOND_RING_GAP = NODE_SIZE[1] / 2 + NODE_SIZE[2] / 2 + LABEL_HEIGHT + 10;
+/** Room at the sides of the box for a node and its name label. */
+const EDGE_MARGIN_X = 46;
+/** Room at the top and bottom of the box for a node and its name label. */
+const EDGE_MARGIN_Y = 54;
+/** Air between neighbours on the same ring. */
+const AIR = 2;
+/** The ring may stretch this much taller than wide to use a tall screen. */
+const MAX_STRETCH = 1.45;
+
+interface Ellipse {
+  rx: number;
+  ry: number;
+}
+
+/** Ramanujan's approximation; exact enough to count nodes. */
+function perimeter({ rx, ry }: Ellipse): number {
+  return Math.PI * (3 * (rx + ry) - Math.sqrt((3 * rx + ry) * (rx + 3 * ry)));
+}
+
+/**
+ * Centre-to-centre distance two neighbours on a ring need so that neither
+ * node's label runs into the other node, whichever way round the ring they
+ * sit. A label hangs under its node, so the tight case is a neighbour
+ * diagonally below: clear when they are a label's half width plus a node's
+ * half width apart sideways, or a node plus a label apart vertically.
+ */
+function spacing(size: number): number {
+  const textHalf = (size + LABEL_WIDTH_EXTRA - 8) / 2;
+  return Math.hypot(size / 2 + textHalf + AIR, size + LABEL_HEIGHT + AIR);
+}
+
+/** How many nodes of this size fit on the ring without labels touching. */
+function capacity(ring: Ellipse, size: number): number {
+  return Math.max(1, Math.floor(perimeter(ring) / spacing(size)));
+}
+
+/**
+ * Walk the ring by distance rather than angle: on an ellipse equal angles
+ * bunch people at the top and bottom, equal arc lengths do not. Returns a
+ * function from a fraction of the way round [0, 1) to a point relative to
+ * the centre, starting at the rightmost point and going clockwise on screen.
+ */
+function arcWalker({ rx, ry }: Ellipse): (fraction: number) => { x: number; y: number } {
+  const steps = 360;
+  const lengths = [0];
+  let px = rx;
+  let py = 0;
+  for (let i = 1; i <= steps; i++) {
+    const t = (i / steps) * Math.PI * 2;
+    const x = Math.cos(t) * rx;
+    const y = Math.sin(t) * ry;
+    lengths.push(lengths[i - 1] + Math.hypot(x - px, y - py));
+    px = x;
+    py = y;
+  }
+  const total = lengths[steps];
+  return (fraction) => {
+    const target = fraction * total;
+    let lo = 0;
+    let hi = steps;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (lengths[mid] < target) lo = mid + 1;
+      else hi = mid;
+    }
+    const i = Math.max(1, lo);
+    const span = lengths[i] - lengths[i - 1] || 1;
+    const t = ((i - 1 + (target - lengths[i - 1]) / span) / steps) * Math.PI * 2;
+    return { x: Math.cos(t) * rx, y: Math.sin(t) * ry };
+  };
+}
 
 /**
  * Where a person sits once they are inside the circle: scattered by hash
@@ -96,38 +180,65 @@ export function layoutCanvas(
   const cx = box.width / 2;
   const cy = box.height / 2;
   const center = { x: cx, y: cy };
-  const maxRadius = Math.min(box.width, box.height) / 2 - EDGE_MARGIN;
+
+  // The outer ring fills the box; on a tall screen it is a little taller
+  // than wide so the rows above and below the centre have room.
+  const rx = Math.max(60, box.width / 2 - EDGE_MARGIN_X);
+  const ry = Math.max(60, Math.min(box.height / 2 - EDGE_MARGIN_Y, rx * MAX_STRETCH));
+  const outer: Ellipse = { rx, ry };
+  // The inner ring keeps the same gap all round, but not so tall and thin
+  // that it stops reading as a ring around the circle.
+  const innerRx = rx - SECOND_RING_GAP;
+  const inner: Ellipse = { rx: innerRx, ry: Math.min(ry - SECOND_RING_GAP, innerRx * 1.6) };
 
   const byAngle = [...outsideIds].sort((a, b) => angleFor(a) - angleFor(b));
-  const ring1 = byAngle.slice(0, RING_CAPACITY);
-  const ring2 = byAngle.slice(RING_CAPACITY);
+  const n = byAngle.length;
 
-  // Work back from the outermost ring so everything fits the box.
-  const outerRadius = maxRadius;
-  const ring1Radius = ring2.length > 0 ? outerRadius - SECOND_RING_GAP : outerRadius;
-  const boundaryRadius = Math.max(40, ring1Radius - RING_GAP);
+  // One ring while it fits; two when it does not; smaller nodes when even
+  // two rings are short of room.
+  let scale = 1;
+  let ring1: string[];
+  let ring2: string[];
+  let ring1Ellipse: Ellipse;
+  if (n <= capacity(outer, NODE_SIZE[1])) {
+    ring1 = byAngle;
+    ring2 = [];
+    ring1Ellipse = outer;
+  } else {
+    // Shrink in small steps until two rings hold everyone, or as far as
+    // nodes may go; past that the outer ring simply gets a little closer.
+    const room = (at: number) =>
+      capacity(inner, NODE_SIZE[1] * at) + capacity(outer, NODE_SIZE[2] * at);
+    while (room(scale) < n && scale > MIN_SCALE) scale = Math.max(MIN_SCALE, scale - 0.02);
+    const cap1 = capacity(inner, NODE_SIZE[1] * scale);
+    ring1 = byAngle.slice(0, Math.min(cap1, n));
+    ring2 = byAngle.slice(ring1.length);
+    ring1Ellipse = inner;
+  }
 
-  const place = (ring: 1 | 2, members: string[], radius: number): CanvasPoint[] => {
+  const boundaryRadius = Math.max(40, Math.min(ring1Ellipse.rx, ring1Ellipse.ry) - RING_GAP);
+
+  const place = (ring: 1 | 2, members: string[], on: Ellipse, offset: number): CanvasPoint[] => {
     if (members.length === 0) return [];
-    // Even spacing keeps names from colliding; the hash only decides the
-    // order and the starting offset, so positions stay stable.
-    const offset = angleFor(members[0]);
+    const size = Math.round(NODE_SIZE[ring] * scale);
+    const along = arcWalker(on);
+    // Even spacing along the ring keeps names from colliding; the hash only
+    // decides the order and the starting offset, so positions stay stable.
     return members.map((id, index) => {
-      const angle = offset + (index / members.length) * Math.PI * 2 - Math.PI / 2;
+      const fraction = offset / (Math.PI * 2) + index / members.length - 0.25;
+      const { x, y } = along(fraction - Math.floor(fraction));
       // A few points of give per person so the ring reads as hand-placed,
       // not plotted. Stable per id; far too small to read as distance.
-      const give = (fractionFor(id) - 0.5) * 10;
-      return {
-        id,
-        x: cx + Math.cos(angle) * (radius + give),
-        y: cy + Math.sin(angle) * (radius + give),
-        ring,
-        size: NODE_SIZE[ring],
-      };
+      const give = 1 + ((fractionFor(id) - 0.5) * 4) / Math.min(on.rx, on.ry);
+      return { id, x: cx + x * give, y: cy + y * give, ring, size };
     });
   };
 
-  const placed = [...place(1, ring1, ring1Radius), ...place(2, ring2, outerRadius)];
+  // The second ring starts half a step round from the first, so nodes on
+  // the two rings sit between each other rather than in line.
+  const offset1 = angleFor(ring1[0] ?? '');
+  const offset2 = offset1 + (ring1.length > 0 ? Math.PI / ring1.length : 0);
+  const placed = [...place(1, ring1, ring1Ellipse, offset1), ...place(2, ring2, outer, offset2)];
   const byId = new Map(placed.map((p) => [p.id, p]));
 
   return {
